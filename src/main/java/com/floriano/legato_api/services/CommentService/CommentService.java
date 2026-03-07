@@ -20,7 +20,6 @@ public class CommentService {
     private final UpdateCommentService updateCommentService;
     private final DeleteCommentService deleteCommentService;
 
-
     public CommentResponseDTO createComment(Long userId, CommentRequestDTO dto) {
         return createCommentService.execute(userId, dto);
     }
@@ -29,13 +28,11 @@ public class CommentService {
         return listAllCommentByPostService.execute(userId);
     }
 
-    public CommentResponseDTO updateComment(Long userId, Long postId, String content) {
-        return updateCommentService.execute(userId, postId, content);
+    public CommentResponseDTO updateComment(Long userId, Long commentId, String content) {
+        return updateCommentService.execute(userId, commentId, content);
     }
 
-    public CommentResponseDTO deleteComment(Long userId, Long postId) {
-        return deleteCommentService.execute(userId, postId);
+    public CommentResponseDTO deleteComment(Long userId, Long commentId) {
+        return deleteCommentService.execute(userId, commentId);
     }
-
-
 }
