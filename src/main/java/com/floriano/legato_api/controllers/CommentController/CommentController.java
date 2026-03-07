@@ -1,9 +1,7 @@
 package com.floriano.legato_api.controllers.CommentController;
 
-import com.floriano.legato_api.dto.ColaborationDTO.ColaborationResponseDTO;
 import com.floriano.legato_api.dto.CommentDTO.CommentRequestDTO;
 import com.floriano.legato_api.dto.CommentDTO.CommentResponseDTO;
-import com.floriano.legato_api.dto.PostDTO.PostResponseDTO;
 import com.floriano.legato_api.dto.PostDTO.PostUpdateDTO;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.model.User.UserPrincipal;
@@ -22,31 +20,37 @@ import java.util.List;
 
 @RestController
 @RequestMapping("comments")
-@Tag(name = "Comments")
+@Tag(name = "Comments", description = "Endpoints related to comments")
 @RequiredArgsConstructor
 public class CommentController {
 
     private final CommentService commentService;
 
     @Operation(
-            summary = "Listar comentários do usuário em uma publicação",
-            description = "Permite que o usuário autenticado visualize seus comentários em uma publicação. "
-                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", security = { @SecurityRequirement(name = "bearerAuth") })
+            summary = "Listar comentários do usuário",
+            description = "Permite que o usuário autenticado visualize seus comentários. "
+                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", 
+            security = { @SecurityRequirement(name = "bearerAuth") }
+    )
     @GetMapping("/user")
-    public ResponseEntity<ApiResponse<List<CommentResponseDTO>>> listColaborationUsers(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+    public ResponseEntity<ApiResponse<List<CommentResponseDTO>>> listUserComments(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = userPrincipal.getUser().getId();
         List<CommentResponseDTO> responseDTO = commentService.listUserComments(userId);
 
-        return ResponseFactory.ok("Colaborações recuperadas com sucesso!", responseDTO);
+        return ResponseFactory.ok("Comentários recuperados com sucesso!", responseDTO);
     }
 
     @Operation(
             summary = "Criar comentário",
             description = "Permite que o usuário autenticado comente em uma publicação. "
-                    + "O ID do criador é obtido automaticamente a partir do token JWT.", security = { @SecurityRequirement(name = "bearerAuth") })
+                    + "O ID do criador é obtido automaticamente a partir do token JWT.", 
+            security = { @SecurityRequirement(name = "bearerAuth") }
+    )
     @PostMapping()
-    public ResponseEntity<ApiResponse<CommentResponseDTO>> createColaboration(@AuthenticationPrincipal UserPrincipal userPrincipal,
-                                                                                   @RequestBody CommentRequestDTO dto) {
+    public ResponseEntity<ApiResponse<CommentResponseDTO>> createComment(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody CommentRequestDTO dto) {
+        
         Long userId = userPrincipal.getUser().getId();
         CommentResponseDTO responseDTO = commentService.createComment(userId, dto);
 
@@ -55,34 +59,36 @@ public class CommentController {
 
     @Operation(
             summary = "Atualizar um comentário",
-            description = "Atualizar o comentário de um usuário "
-                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", security = { @SecurityRequirement(name = "bearerAuth") })
-    @PutMapping("/{postId}")
+            description = "Atualiza o conteúdo de um comentário específico usando o ID do comentário. "
+                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", 
+            security = { @SecurityRequirement(name = "bearerAuth") }
+    )
+    @PutMapping("/{commentId}")
     public ResponseEntity<CommentResponseDTO> updateComment(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long postId,
-            @RequestBody PostUpdateDTO dto
+            @PathVariable Long commentId,
+            @RequestBody PostUpdateDTO dto 
     ) {
-        User authenticatedUser = userPrincipal.getUser();
-        Long userId = authenticatedUser.getId();
+        Long userId = userPrincipal.getUser().getId();
 
-        CommentResponseDTO response = commentService.updateComment(userId, postId, dto.content());
+        CommentResponseDTO response = commentService.updateComment(userId, commentId, dto.content());
         return ResponseEntity.ok(response);
     }
 
     @Operation(
             summary = "Deletar um comentário",
-            description = "Deletar um comentário de um usuário "
-                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", security = { @SecurityRequirement(name = "bearerAuth") })
-    @DeleteMapping("/{postId}")
+            description = "Deleta um comentário específico usando o ID do comentário. "
+                    + "O ID do usuário é obtido automaticamente a partir do token JWT.", 
+            security = { @SecurityRequirement(name = "bearerAuth") }
+    )
+    @DeleteMapping("/{commentId}")
     public ResponseEntity<CommentResponseDTO> deleteComment(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long postId
+            @PathVariable Long commentId
     ) {
-        User authenticatedUser = userPrincipal.getUser();
-        Long userId = authenticatedUser.getId();
+        Long userId = userPrincipal.getUser().getId();
 
-        CommentResponseDTO response = commentService.deleteComment(userId, postId);
+        CommentResponseDTO response = commentService.deleteComment(userId, commentId);
         return ResponseEntity.ok(response);
     }
 }
