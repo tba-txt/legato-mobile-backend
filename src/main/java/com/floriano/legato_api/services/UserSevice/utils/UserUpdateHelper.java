@@ -30,8 +30,6 @@ public class UserUpdateHelper {
         if (dto.getBio() != null)
             user.setBio(dto.getBio());
 
-        if (dto.getGoal() != null)
-            user.setGoal(dto.getGoal());
     }
 
     public static void updateMusicPreferences(User user, UserUpdateDTO dto) {

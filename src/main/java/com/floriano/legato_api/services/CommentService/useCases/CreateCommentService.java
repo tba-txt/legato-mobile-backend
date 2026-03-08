@@ -11,6 +11,7 @@ import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.CommentRepository;
 import com.floriano.legato_api.repositories.PostRepository;
 import com.floriano.legato_api.repositories.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +23,7 @@ public class CreateCommentService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
 
-
+    @Transactional
     public CommentResponseDTO execute(Long userId, CommentRequestDTO dto) {
 
         User user = userRepository.findById(userId)

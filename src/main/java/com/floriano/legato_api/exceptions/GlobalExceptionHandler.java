@@ -49,12 +49,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ForbiddenActionException.class)
-    public ResponseEntity<ApiResponse<Object>> forbiddenActionException(UserNotFoundException ex) {
+    public ResponseEntity<ApiResponse<Object>> forbiddenActionException(ForbiddenActionException ex) {
         return new ResponseEntity<>(new ApiResponse<>(false, ex.getMessage(), null), HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(PostNotFoundException.class)
-    public ResponseEntity<ApiResponse<Object>> postNotFoundException(UserNotFoundException ex) {
+    public ResponseEntity<ApiResponse<Object>> postNotFoundException(PostNotFoundException ex) {
         return new ResponseEntity<>(new ApiResponse<>(false, ex.getMessage(), null), HttpStatus.NOT_FOUND);
     }
 }

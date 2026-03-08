@@ -1,7 +1,7 @@
 package com.floriano.legato_api.services.UserSevice;
 
 import com.floriano.legato_api.dto.ConnectionDTO.ConnectionRequestResponseDTO;
-import com.floriano.legato_api.dto.UserDTO.NearbyUserDTO;
+import com.floriano.legato_api.dto.UserDTO.LocationUserDTO;
 import com.floriano.legato_api.dto.UserDTO.UserListDTO;
 import com.floriano.legato_api.dto.UserDTO.UserResponseDTO;
 import com.floriano.legato_api.dto.UserDTO.UserUpdateDTO;
@@ -39,7 +39,7 @@ public class UserService {
     private final ListFollowersService listFollowersService;
     private final UpdateUserImageService UpdateUserImageService;
     private final UpdateUserCardsImageService UpdateUserCardsImageService;
-    private final FindNearbyUsersService findNearbyUsersService;
+    private final FindLocationOfUsersService findLocationOfUsersService;
     private final FindUserByUsername findUserByUsername;
     private final RemoveUserCardImageService removeUserCardImageService;
 
@@ -154,7 +154,7 @@ public class UserService {
 
     // GEOLOCALIZATION
 
-    public List<NearbyUserDTO> findNearbyUsers(Long userId, double radiusKm) {
-        return findNearbyUsersService.execute(userId, radiusKm);
+    public List<LocationUserDTO> findLocationOfUsers(Long userId, double radiusKm) {
+        return findLocationOfUsersService.execute(userId, radiusKm);
     }
 }

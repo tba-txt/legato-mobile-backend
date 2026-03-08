@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.floriano</groupId>
 	<artifactId>legato_api</artifactId>
-	<version>1.0.2</version>
+	<version>1.0.3</version>
 	<name>legato_api</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>

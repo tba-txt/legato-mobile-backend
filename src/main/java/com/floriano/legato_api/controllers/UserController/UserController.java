@@ -52,14 +52,14 @@ public class UserController {
         return ResponseFactory.ok("Lista recuperada com sucesso!", userResponseDTOList);
     }
 
-    @Operation(summary = "Get users nearby", description = "Returns the complete list of registered users by location", security = @SecurityRequirement(name = "bearerAuth"))
-    @GetMapping("/nearby")
-    public ResponseEntity<List<NearbyUserDTO>> nearbyUsers(
+    @Operation(summary = "Get users location", description = "Returns the complete list of registered users by location", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/location")
+    public ResponseEntity<List<LocationUserDTO>> LocationOfUsers(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestParam(defaultValue = "10") double radiusKm) {
 
         Long id = userPrincipal.getUser().getId();
-        List<NearbyUserDTO> result = userService.findNearbyUsers(id, radiusKm);
+        List<LocationUserDTO> result = userService.findLocationOfUsers(id, radiusKm);
         return ResponseEntity.ok(result);
     }
 
@@ -279,11 +279,11 @@ public class UserController {
                 """,
             security = { @SecurityRequirement(name = "bearerAuth") }
     )
-    @PutMapping("/card-image")
+    @PutMapping("/card-file")
     public ResponseEntity<ApiResponse<UserResponseDTO>> uploadUserCardImages(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestParam("index") int index,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file 
     ) {
         Long userId = userPrincipal.getUser().getId();
         UserResponseDTO responseDTO = userService.updateCardImgs(userId, file, index);

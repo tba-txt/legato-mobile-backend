@@ -1,15 +1,15 @@
 package com.floriano.legato_api.mapper.user;
 
-import com.floriano.legato_api.dto.UserDTO.NearbyUserDTO;
+import com.floriano.legato_api.dto.UserDTO.LocationUserDTO;
 import com.floriano.legato_api.model.User.User;
 
-public class NearbyUserMapper {
+public class LocationUserMapper {
 
-    public static NearbyUserDTO toDTO(User user, double distanceKm) {
+    public static LocationUserDTO toDTO(User user, double distanceKm) {
 
         double rounded = round(distanceKm, 2);
 
-        NearbyUserDTO dto = new NearbyUserDTO();
+        LocationUserDTO dto = new LocationUserDTO();
         dto.setId(user.getId());
         dto.setUsername(user.getUsername());
         dto.setDisplayName(user.getDisplayName());
