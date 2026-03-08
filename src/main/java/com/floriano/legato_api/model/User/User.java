@@ -70,8 +70,6 @@ public class User {
     @Column(name = "genre")
     private List<Genre> genres = new ArrayList<>();
 
-    private String goal;
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Post> posts = new ArrayList<>();
 

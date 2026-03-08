@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-public class NearbyUserDTO {
+public class LocationUserDTO {
     private Long id;
     private String username;
     private String displayName;

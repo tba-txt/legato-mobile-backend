@@ -31,19 +31,45 @@ public class CloudinaryService {
     }
 
     public void deleteFile(String fileUrl) {
+        if (fileUrl == null || fileUrl.trim().isEmpty() || fileUrl.equals("string")) {
+            return; 
+        }
+
         try {
             String publicId = extractPublicId(fileUrl);
-            cloudinary.uploader().destroy(publicId, Map.of());
+            if (publicId != null) {
+                
+                Map<String, Object> options = new HashMap<>();
+                
+            if (fileUrl.toLowerCase().matches(".*\\.(mp4|mov|avi|webm|mkv|mp3|wav|ogg|flac)$")) {
+                options.put("resource_type", "video");
+            } else {
+                options.put("resource_type", "image");
+            }
+
+                cloudinary.uploader().destroy(publicId, options);
+            }
         } catch (Exception e) {
-            throw new RuntimeException("Erro ao deletar imagem do Cloudinary", e);
+            System.err.println("Aviso: Falha ao deletar arquivo no Cloudinary: " + fileUrl);
         }
     }
 
     private String extractPublicId(String url) {
-        String[] parts = url.split("/");
-        String filename = parts[parts.length - 1];
-        String folder = parts[parts.length - 2];
-        return folder + "/" + filename.substring(0, filename.lastIndexOf("."));
-    }
+            try {
+                String[] parts = url.split("/");
+                if (parts.length < 2) return null; 
 
-}
+                String filename = parts[parts.length - 1];
+                String folder = parts[parts.length - 2];
+                
+                int dotIndex = filename.lastIndexOf(".");
+                if (dotIndex == -1) {
+                    return folder + "/" + filename; 
+                }
+                
+                return folder + "/" + filename.substring(0, dotIndex);
+            } catch (Exception e) {
+                return null; 
+            }
+        }
+    }

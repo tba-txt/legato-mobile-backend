@@ -19,6 +19,7 @@ public class CommentMapper {
 
     public static CommentResponseDTO toResponseDTO(Comment comment) {
         CommentResponseDTO response = new CommentResponseDTO();
+        response.setCommentId(comment.getId());
         response.setUserId(comment.getUser().getId());
         response.setContent(comment.getContent());
         response.setTimeAgo(comment.getTimeAgo());

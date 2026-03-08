@@ -1,7 +1,7 @@
 package com.floriano.legato_api.services.UserSevice.useCases;
 
-import com.floriano.legato_api.dto.UserDTO.NearbyUserDTO;
-import com.floriano.legato_api.mapper.user.NearbyUserMapper;
+import com.floriano.legato_api.dto.UserDTO.LocationUserDTO;
+import com.floriano.legato_api.mapper.user.LocationUserMapper;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.UserRepository;
 import lombok.AllArgsConstructor;
@@ -13,12 +13,12 @@ import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
-public class FindNearbyUsersService {
+public class FindLocationOfUsersService {
 
     private final UserRepository userRepository;
     private final ListAllUsersService listAllUsersService;
 
-    public List<NearbyUserDTO> execute(Long userId, double radiusKm) {
+    public List<LocationUserDTO> execute(Long userId, double radiusKm) {
         User origin = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
@@ -39,10 +39,10 @@ public class FindNearbyUsersService {
                             u.getLocation().getLongitude()
                     );
 
-                    return NearbyUserMapper.toDTO(u, dist);
+                    return LocationUserMapper.toDTO(u, dist);
                 })
                 .filter(dto -> dto.getDistanceKm() <= radiusKm)
-                .sorted(Comparator.comparingDouble(NearbyUserDTO::getDistanceKm))
+                .sorted(Comparator.comparingDouble(LocationUserDTO::getDistanceKm))
                 .collect(Collectors.toList());
     }
 
