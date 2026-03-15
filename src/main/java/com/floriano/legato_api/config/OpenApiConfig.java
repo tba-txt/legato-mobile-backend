@@ -1,6 +1,5 @@
 package com.floriano.legato_api.config;
 
-
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
@@ -15,8 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @OpenAPIDefinition(
         info = @Info(
                 title = "LEGATO - OpenAPI Specification",
-                description = "API for serving the Legato plataform "
-                        + "Provides endpoints to explore the history of philosophy and its .",
+                description = "API for serving the Legato platform. Provides endpoints for users, collaborations, posts, and notifications.",
                 version = "1.0",
                 contact = @Contact(
                         name = "Ernesto Floriano Amorim",
@@ -30,12 +28,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
         ),
         servers = {
                 @Server(
-                        description = "Local Environment",
-                        url = "http://localhost:8081/"
+                        description = "Production Environment (Render)",
+                        url = "https://legato-mobile-backend.onrender.com"
                 ),
                 @Server(
-                        description = "Production Environment",
-                        url = "TO DO YET"
+                        description = "Local Environment",
+                        url = "http://localhost:8081/"
                 )
         },
         tags = {
