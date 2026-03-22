@@ -1,20 +1,21 @@
 package com.floriano.legato_api.services.UserSevice;
 
 import com.floriano.legato_api.dto.ConnectionDTO.ConnectionRequestResponseDTO;
-import com.floriano.legato_api.dto.UserDTO.LocationUserDTO;
-import com.floriano.legato_api.dto.UserDTO.UserListDTO;
-import com.floriano.legato_api.dto.UserDTO.UserResponseDTO;
-import com.floriano.legato_api.dto.UserDTO.UserUpdateDTO;
 import com.floriano.legato_api.mapper.connection.ConnectionRequestMapper;
 import com.floriano.legato_api.model.Connection.ConnectionRequest;
 import com.floriano.legato_api.model.User.User;
+import com.floriano.legato_api.model.User.AuxiliaryEntity.Location;
+import com.floriano.legato_api.repositories.UserRepository;
 import com.floriano.legato_api.services.UserSevice.useCases.*;
+import com.floriano.legato_api.repositories.UserRepository;
+import com.floriano.legato_api.dto.UserDTO.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -42,6 +43,7 @@ public class UserService {
     private final FindLocationOfUsersService findLocationOfUsersService;
     private final FindUserByUsername findUserByUsername;
     private final RemoveUserCardImageService removeUserCardImageService;
+    private final UserRepository userRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
@@ -153,8 +155,22 @@ public class UserService {
     }
 
     // GEOLOCALIZATION
-
     public List<LocationUserDTO> findLocationOfUsers(Long userId, double radiusKm) {
         return findLocationOfUsersService.execute(userId, radiusKm);
+    }
+
+    public void updateUserLocation(Long userId, double latitude, double longitude) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        
+        if (user.getLocation() == null) {
+            user.setLocation(new Location());
+        }
+        
+        user.getLocation().setLatitude(latitude);
+        user.getLocation().setLongitude(longitude);
+        user.getLocation().setUpdatedAt(LocalDateTime.now());
+        
+        userRepository.save(user);
     }
 }

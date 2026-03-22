@@ -5,6 +5,7 @@ import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.ChatRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,6 +19,20 @@ public class ChatService {
 
     public Chat saveChat(Chat chat) {
         return chatRepository.save(chat);
+    }
+
+    public List<Chat> getChatsByUser(User user) {
+        return chatRepository.findAllByParticipantsContaining(user);
+    }
+
+    public Chat getChatByUser(Long getUser1, Long getUser2) {
+        return chatRepository.findChatBetweenUsers(getUser1, getUser2)
+                .orElseThrow(() -> new RuntimeException("Chat não encontrado"));
+    }
+
+    public Chat getChatById(Long id) {
+        return chatRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Chat não encontrado"));
     }
 
     public Optional<Chat> findChatBetween(User user1, User user2) {

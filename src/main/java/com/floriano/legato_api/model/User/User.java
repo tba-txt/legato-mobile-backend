@@ -14,6 +14,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.*;
 
 @Table(name = "users")
@@ -31,6 +32,7 @@ public class User {
 
     private String email;
     private String password;
+    private LocalDate birthDate;
 
     private String username;
     private String displayName;
