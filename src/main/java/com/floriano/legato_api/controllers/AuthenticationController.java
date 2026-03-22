@@ -7,7 +7,12 @@ import com.floriano.legato_api.mapper.user.UserMapper;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.infra.security.TokenService;
 import com.floriano.legato_api.model.User.UserPrincipal;
+import com.floriano.legato_api.payload.ResponseFactory;
 import com.floriano.legato_api.repositories.UserRepository;
+import com.floriano.legato_api.services.AuthorizationService.RecaptchaService;
+
+import java.time.LocalDate;
+import java.time.Period;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +37,8 @@ public class AuthenticationController {
 
     private final UserRepository userRepository;
 
+    private final RecaptchaService recaptchaService;
+
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody AutheticationDto data) {
@@ -53,12 +60,30 @@ public class AuthenticationController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterDto data) {
         try {
+            boolean isHuman = recaptchaService.validateToken(data.recaptchaToken());
+            
+           /* if (!isHuman) {
+                return ResponseFactory.forbidden("Falha na validação do reCAPTCHA. Você é um robô?");
+            } */ //comentado para facilitar os testes, mas deve ser descomentado para produção
+
             if (this.userRepository.findByEmail(data.email()).isPresent()) {
-                return ResponseEntity.badRequest().body("Email already exists");
+                return ResponseFactory.badRequest("Email already exists");
+            }
+
+            if (data.birthDate() == null) {
+                return ResponseFactory.badRequest("A data de nascimento é obrigatória.");
+            }
+
+            int age = Period.between(data.birthDate(), LocalDate.now()).getYears();
+
+            if (age < 18) {
+                return ResponseFactory.badRequest("Você precisa ter pelo menos 18 anos para se cadastrar no Legato.");
             }
 
             String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
+            
             User newUser = new User(data.email(), encryptedPassword, data.role(), data.username(), data.displayName());
+            newUser.setBirthDate(data.birthDate());
 
             this.userRepository.save(newUser);
 
@@ -66,11 +91,11 @@ public class AuthenticationController {
             var userDTO = UserMapper.toDTO(newUser);
             var response = new AuthResponseDTO(token, userDTO);
 
-            return ResponseEntity.ok(response);
+            return ResponseFactory.ok("Usuário cadastrado com sucesso!", response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseFactory.badRequest("Error: " + e.getMessage());
         }
     }
 }

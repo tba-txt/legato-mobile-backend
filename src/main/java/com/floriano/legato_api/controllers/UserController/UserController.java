@@ -63,6 +63,14 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Update user location", description = "Updates the GPS coordinates of the authenticated user in real-time", security = @SecurityRequirement(name = "bearerAuth"))
+    @PatchMapping("/location")
+    public ResponseEntity<ApiResponse<Void>> updateLocation(@AuthenticationPrincipal UserPrincipal userPrincipal, @RequestBody UpdateLocationRequestDTO data) {
+        Long id = userPrincipal.getUser().getId();
+        userService.updateUserLocation(id, data.latitude(), data.longitude());
+        return ResponseFactory.ok("Localização atualizada com sucesso em tempo real!");
+    }
+
     @Operation(summary = "Update user", description = "Updates an existing user by ID", security = @SecurityRequirement(name = "bearerAuth"))
     @PutMapping
     public ResponseEntity<ApiResponse<UserResponseDTO>> updateUser(@AuthenticationPrincipal UserPrincipal userPrincipal,  @RequestBody UserUpdateDTO dto ) {

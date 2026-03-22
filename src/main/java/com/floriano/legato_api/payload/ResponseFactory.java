@@ -20,4 +20,12 @@ public class ResponseFactory {
     public static <T> ResponseEntity<ApiResponse<T>> notFound(String message) {
         return new ResponseEntity<>(new ApiResponse<>(false, message, null), HttpStatus.NOT_FOUND);
     }
+
+    public static <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
+        return new ResponseEntity<>(new ApiResponse<>(false, message, null), HttpStatus.BAD_REQUEST);
+    }
+
+    public static <T> ResponseEntity<ApiResponse<T>> forbidden(String message) {
+        return new ResponseEntity<>(new ApiResponse<>(false, message, null), HttpStatus.FORBIDDEN);
+    }
 }

@@ -1,24 +1,37 @@
 package com.floriano.legato_api.controllers.ChatController;
 
 import com.floriano.legato_api.dto.ChatDTO.ChatMessageDTO;
+import com.floriano.legato_api.dto.ChatDTO.ChatSummaryDTO;
 import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.services.ChatService.ChatMessageService;
 import com.floriano.legato_api.services.ChatService.ChatService;
 import com.floriano.legato_api.services.UserSevice.UserService;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
-@Controller
+@RestController
+@RequestMapping("/chats")
+@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Chat", description = "Endpoints related to chat")
 public class ChatController {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
@@ -73,6 +86,70 @@ public class ChatController {
 
         } catch (Exception e) {
             logger.error("Erro ao enviar mensagem: {}", e.getMessage(), e);
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ChatSummaryDTO>> getUserChats(Principal principal) {
+        String userEmail = principal.getName();
+        User currentUser = userService.findByEmail(userEmail);
+
+        if (currentUser == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        List<Chat> userChats = chatService.getChatsByUser(currentUser);
+
+        List<ChatSummaryDTO> chatSummaries = userChats.stream().map(chat -> {
+            
+            User otherUser = chat.getParticipants().stream()
+                    .filter(participant -> !participant.getId().equals(currentUser.getId()))
+                    .findFirst()
+                    .orElse(currentUser); 
+
+            ChatMessage lastMessage = chat.getMessages().isEmpty() ? null : 
+                                      chat.getMessages().get(chat.getMessages().size() - 1);
+
+            return new ChatSummaryDTO(
+                    chat.getId(),
+                    otherUser.getId(),
+                    otherUser.getUsername(),
+                    otherUser.getProfilePicture(),
+                    lastMessage != null ? lastMessage.getContent() : "",
+                    lastMessage != null ? lastMessage.getTimestamp() : null
+            );
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(chatSummaries);
+    }
+
+    @GetMapping("/{chatId}/messages")
+    public ResponseEntity<List<ChatMessageDTO>> getChatMessages(@PathVariable Long chatId, Principal principal) {
+        String userEmail = principal.getName();
+        User currentUser = userService.findByEmail(userEmail);
+
+        if (currentUser == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Chat chat = chatService.getChatById(chatId);
+
+            boolean isParticipant = chat.getParticipants().stream()
+                    .anyMatch(p -> p.getId().equals(currentUser.getId()));
+
+            if (!isParticipant) {
+                return ResponseEntity.status(403).build();
+            }
+
+            List<ChatMessageDTO> messages = chat.getMessages().stream()
+                    .map(ChatMessageDTO::from)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(messages);
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
         }
     }
 }
