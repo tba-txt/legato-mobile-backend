@@ -1,5 +1,6 @@
 package com.floriano.legato_api.model.User;
 
+import com.floriano.legato_api.infra.security.SecurityConstants;
 import com.floriano.legato_api.model.Colaboration.Colaboration;
 import com.floriano.legato_api.model.Connection.enums.ConnectionStatus;
 import com.floriano.legato_api.model.Post.Post;
@@ -10,6 +11,8 @@ import com.floriano.legato_api.model.User.AuxiliaryEntity.Location;
 import com.floriano.legato_api.model.User.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
+
+import org.hibernate.annotations.ColumnTransformer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -40,7 +43,11 @@ public class User {
     private String profilePicture;
     private String profileBanner;
 
-    @Column(length = 355, nullable = true)
+    @Column(columnDefinition = "bytea")
+        @ColumnTransformer(
+            read = "pgp_sym_decrypt(city::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+            write = "pgp_sym_encrypt(?, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+        )
     private String bio;
 
     @ElementCollection
