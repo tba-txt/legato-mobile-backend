@@ -1,5 +1,6 @@
 package com.floriano.legato_api.dto.ChatDTO;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,8 @@ import java.time.LocalDateTime;
 public class ChatMessageDTO {
     private Long id;
     private String content;
+
+    @JsonFormat(pattern = "dd/MM/yyyy HH:mm")
     private LocalDateTime timestamp;
     private String senderName;
     private String senderEmail;

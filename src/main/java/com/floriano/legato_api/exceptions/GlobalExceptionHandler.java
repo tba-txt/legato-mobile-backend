@@ -1,10 +1,14 @@
 package com.floriano.legato_api.exceptions;
 
 import com.floriano.legato_api.payload.ApiResponse;
+import com.floriano.legato_api.payload.ResponseFactory;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -37,6 +41,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<String> handleMaxSizeException() {
         return ResponseEntity.badRequest().body("Arquivo excede o limite permitido.");
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentialsException(BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
+        logger.warn("Falha de autenticacao: {}", ex.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
     }
 
     @ExceptionHandler(Exception.class)
