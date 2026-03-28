@@ -43,11 +43,11 @@ public class User {
     private String profilePicture;
     private String profileBanner;
 
-    @Column(columnDefinition = "bytea")
-        @ColumnTransformer(
-            read = "pgp_sym_decrypt(city::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
-            write = "pgp_sym_encrypt(?, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
-        )
+    @Column(columnDefinition = "bytea", nullable = true)
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(bio::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
     private String bio;
 
     @ElementCollection
