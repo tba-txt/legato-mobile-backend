@@ -47,7 +47,7 @@ public class AuthenticationController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody AutheticationDto data) {
+    public ResponseEntity<?> login(@RequestBody AutheticationDto data) {
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
         boolean emailsExists = userRepository.existsByEmail(data.email());
         if (!emailsExists) throw new IllegalArgumentException("Email não encontrado!");
@@ -60,7 +60,7 @@ public class AuthenticationController {
         var userDTO = UserMapper.toDTO(user);
         var response = new AuthResponseDTO(token, userDTO);
 
-        return ResponseEntity.ok(response);
+        return ResponseFactory.ok("Login realizado com sucesso", response);
     }
 
     @PostMapping("/register")
