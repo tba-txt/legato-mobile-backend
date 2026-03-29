@@ -52,6 +52,7 @@ public class User {
 
     @ElementCollection
     @CollectionTable(name = "user_photos_card", joinColumns = @JoinColumn(name = "user_id"))
+    @OrderColumn(name = "photo_index")
     @Column(name = "photo_url")
     private List<String> photosCard = new ArrayList<>();
 
