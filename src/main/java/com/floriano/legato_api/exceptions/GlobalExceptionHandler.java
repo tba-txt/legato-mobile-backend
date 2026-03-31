@@ -56,11 +56,29 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
     }
 
+// Trata erros do Hibernate/Banco de Dados (ex: violação de constraint, índice nulo)
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        logger.error("Erro de integridade de dados", ex);
+        return new ResponseEntity<>(new ApiResponse<>(false, "Erro no banco de dados: " + ex.getMostSpecificCause().getMessage(), null), HttpStatus.CONFLICT);
+    }
+
+    // Trata erros de validação de DTOs (@Valid, @NotNull, etc)
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(org.springframework.web.bind.MethodArgumentNotValidException ex) {
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .reduce("", (partialString, element) -> partialString + element + "; ");
+        return new ResponseEntity<>(new ApiResponse<>(false, "Erro de validação: " + errorMessage, null), HttpStatus.BAD_REQUEST);
+    }
+
+    // O "Pega-Tudo" agora vai te "dedurar" o erro real para o front-end
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGeneral(Exception ex) {
         logger.error("Erro interno no servidor", ex);
+        // Expondo a mensagem real da exception no lugar da mensagem genérica
         return new ResponseEntity<>(
-                new ApiResponse<>(false, "Erro interno no servidor", null),
+                new ApiResponse<>(false, "Erro no servidor: " + ex.getMessage(), null),
                 HttpStatus.INTERNAL_SERVER_ERROR
         );
     }

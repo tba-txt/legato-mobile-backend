@@ -66,4 +66,14 @@ public class NotificationController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Mark a single notification as read")
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        notificationService.markAsRead(id, userPrincipal.getUser().getId());
+        return ResponseFactory.ok("Notification marked as read", null);
+    }
+
 }
