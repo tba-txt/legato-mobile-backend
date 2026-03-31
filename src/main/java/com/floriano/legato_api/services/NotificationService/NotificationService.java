@@ -17,6 +17,7 @@ public class NotificationService {
     private final ListNotificationsByRecipientService listNotificationsByRecipientService;
     private final DeleteNotificationService deleteNotificationService;
     private final MarkAllAsReadService markAllAsReadService;
+    private final ReadNotificationService readNotificationService;
 
     @Transactional(readOnly = true)
     public List<NotificationResponseDTO> findAllByRecipient(Long recipientId) {
@@ -36,5 +37,10 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead(Long recipientId) {
         markAllAsReadService.execute(recipientId);
+    }
+
+    @Transactional
+    public void markAsRead(Long notificationId, Long userId) {
+        readNotificationService.execute(notificationId, userId);
     }
 }
