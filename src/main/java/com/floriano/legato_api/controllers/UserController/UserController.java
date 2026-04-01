@@ -3,7 +3,6 @@ package com.floriano.legato_api.controllers.UserController;
 import com.floriano.legato_api.dto.ConnectionDTO.ConnectionRequestResponseDTO;
 import com.floriano.legato_api.dto.UserDTO.*;
 import com.floriano.legato_api.mapper.user.UserMapper;
-import com.floriano.legato_api.model.Connection.ConnectionRequest;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.payload.ApiResponse;
@@ -306,4 +305,13 @@ public class UserController {
     ) {
         return ResponseEntity.ok(userService.removeCardImage(id, index));
     }
+
+
+    // mock de spotify, remover depois
+    @GetMapping("/musicians/{id}/favorite-artists")
+    public ResponseEntity<ApiResponse<List<String>>> getFavoriteArtistsMock(@PathVariable Long id) {
+        List<String> mockArtists = List.of("Arctic Monkeys", "John Mayer", "Dua Lipa");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Artistas recuperados com sucesso", mockArtists));
+    }
+
 }

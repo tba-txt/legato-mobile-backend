@@ -20,7 +20,7 @@ public class UserRequestDTO {
     private List<String> photosCard;
     private String sex;
     private String bio;
-    private String goal;
+    private String objective;
 
     // PREFERÊNCIAS MUSICAIS
     private List<String> instruments;
