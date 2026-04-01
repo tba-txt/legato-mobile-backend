@@ -59,6 +59,9 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserSex sex;
 
+    @Column(name = "objective", columnDefinition = "text") 
+    private String objective;
+
     // MÚSICA E PREFERÊNCIAS
     @ElementCollection(targetClass = InstrumentList.class)
     @Enumerated(EnumType.STRING)
@@ -149,6 +152,14 @@ public class User {
         this.username = username;
         this.displayName = displayName;
     }
+
+    // CHAT
+
+    @Column(name = "is_online")
+    private boolean isOnline = false;
+
+    @Column(name = "last_seen")
+    private LocalDateTime lastSeen;
 
     // MÉTODOS AUXILIARES
 

@@ -33,6 +33,7 @@ public class UserMapper {
         dto.setGenres(user.getGenres()
                 .stream().map(Enum::name).collect(Collectors.toList()));
         dto.setBio(user.getBio());
+        dto.setObjective(user.getObjective());
         dto.setLocation(user.getLocation());
         dto.setLinks(user.getLinks());
         dto.setCreatedAt(user.getCreatedAt());

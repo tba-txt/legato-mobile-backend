@@ -2,6 +2,7 @@ package com.floriano.legato_api.controllers.ChatController;
 
 import com.floriano.legato_api.dto.ChatDTO.ChatMessageDTO;
 import com.floriano.legato_api.dto.ChatDTO.ChatSummaryDTO;
+import com.floriano.legato_api.dto.ChatDTO.TypingDTO;
 import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
 import com.floriano.legato_api.model.User.User;
@@ -15,7 +16,9 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -88,6 +91,14 @@ public class ChatController {
             logger.error("Erro ao enviar mensagem: {}", e.getMessage(), e);
         }
     }
+
+    // --- AQUI ESTÁ O CÓDIGO DO DIGITANDO ---
+    @MessageMapping("/chat/{chatId}/typing")
+    public void processTypingStatus(@DestinationVariable Long chatId, @Payload TypingDTO typingDTO) {
+        // Envia o status de digitando para quem estiver inscrito no tópico deste chat
+        messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/typing", typingDTO);
+    }
+    // ---------------------------------------
 
     @GetMapping
     public ResponseEntity<List<ChatSummaryDTO>> getUserChats(Principal principal) {

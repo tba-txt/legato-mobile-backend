@@ -35,6 +35,7 @@ public class UserResponseDTO {
     private List<String> genres = new ArrayList<>();
 
     private String bio;
+    private String objective;
 
     private Location location;
     private ExternalLinks links;
