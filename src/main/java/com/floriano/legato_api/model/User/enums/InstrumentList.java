@@ -1,12 +1,12 @@
 package com.floriano.legato_api.model.User.enums;
 
 public enum InstrumentList {
-    GUITARRISTA("guitarrista"),
-    TECLADISTA("tecladista"),
-    BATERISTA("baterista"),
-    VOCALISTA("vocalista"),
+    GUITARRA("guitarra"),
+    TECLADO("teclado"),
+    BATERIA("bateria"),
+    VOCAL("vocal"),
     COMPOSITOR("compositor"),
-    BAIXISTA("baixista"),
+    BAIXO("baixo"),
     DJ("dj"),
     OUTRO("outro");
 
