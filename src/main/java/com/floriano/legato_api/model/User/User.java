@@ -156,7 +156,7 @@ public class User {
     // CHAT
 
     @Column(name = "is_online")
-    private boolean isOnline = false;
+    private Boolean isOnline = false;
 
     @Column(name = "last_seen")
     private LocalDateTime lastSeen;

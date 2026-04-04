@@ -1,5 +1,6 @@
 package com.floriano.legato_api.mapper.user;
 
+import com.floriano.legato_api.dto.UserDTO.DiscoveryUserDTO;
 import com.floriano.legato_api.dto.UserDTO.UserListDTO;
 import com.floriano.legato_api.dto.UserDTO.UserResponseDTO;
 import com.floriano.legato_api.model.User.User;
@@ -77,6 +78,34 @@ public class UserMapper {
         dto.setFollowersCount(user.getFollowers().size());
         dto.setFollowingCount(user.getFollowing().size());
 
+        return dto;
+    }
+
+    public static DiscoveryUserDTO toDiscoveryDTO(User user) {
+        if (user == null) return null;
+
+        DiscoveryUserDTO dto = new DiscoveryUserDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setDisplayName(user.getDisplayName());
+        dto.setProfilePicture(user.getProfilePicture());
+        dto.setPhotosCard(user.getPhotosCard());
+        dto.setSex(user.getSex() != null ? user.getSex().name() : null);
+        
+        // Convertendo os Enums para String do mesmo jeito que você já faz
+        if (user.getInstruments() != null) {
+            dto.setInstruments(user.getInstruments().stream().map(Enum::name).collect(Collectors.toList()));
+        }
+        
+        if (user.getGenres() != null) {
+            dto.setGenres(user.getGenres().stream().map(Enum::name).collect(Collectors.toList()));
+        }
+
+        dto.setBio(user.getBio());
+        dto.setLocation(user.getLocation());
+        
+        // Aqui você pode adicionar o getBirthDate se precisar, ou remover do DTO se não for usar.
+        
         return dto;
     }
 }

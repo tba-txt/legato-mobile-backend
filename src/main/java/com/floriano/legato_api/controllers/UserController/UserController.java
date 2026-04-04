@@ -44,6 +44,27 @@ public class UserController {
         return ResponseFactory.ok("Usuário recuperada com sucesso!", user);
     }
 
+    @Operation(
+        summary = "Get users for discovery", 
+        description = "Returns a list of users formatted for the swipe/discovery screen",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/discovery")
+    public ResponseEntity<ApiResponse<List<DiscoveryUserDTO>>> getUsersForDiscovery(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        
+        // Pega todos os usuários (aqui você pode depois adicionar lógica para excluir o próprio usuário ou quem ele já deu match)
+        List<User> users = userService.findAll(); 
+        
+        List<DiscoveryUserDTO> discoveryList = users.stream()
+                // Filtra para não mostrar o próprio usuário logado na tela de swipe
+                .filter(u -> !u.getId().equals(userPrincipal.getUser().getId()))
+                .map(UserMapper::toDiscoveryDTO)
+                .toList();
+
+        return ResponseFactory.ok("Usuários para discovery recuperados com sucesso", discoveryList);
+    }
+
     @Operation(summary = "Get all users", description = "Returns the complete list of registered users", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserListDTO>>> getUsers() {
