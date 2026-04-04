@@ -49,6 +49,10 @@ public class UserService {
 
     // CRUD
 
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
     public List<UserListDTO> listAllUsers() {
         return listAllUsersService.execute();
     }

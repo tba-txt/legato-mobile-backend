@@ -23,7 +23,7 @@ public class WebSocketEventListener {
 
         if (username != null) {
             userRepository.findByEmail(username).ifPresent(user -> {
-                user.setOnline(true);
+                user.setIsOnline(true);
                 user.setLastSeen(LocalDateTime.now());
                 userRepository.save(user);
             });
@@ -37,7 +37,7 @@ public class WebSocketEventListener {
 
         if (username != null) {
             userRepository.findByEmail(username).ifPresent(user -> {
-                user.setOnline(false);
+                user.setIsOnline(false);
                 user.setLastSeen(LocalDateTime.now());
                 userRepository.save(user);
             });
