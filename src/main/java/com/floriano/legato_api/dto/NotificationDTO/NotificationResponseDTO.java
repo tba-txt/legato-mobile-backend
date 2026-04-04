@@ -21,6 +21,7 @@ public class NotificationResponseDTO {
     private String senderName;
     private String recipientName;
 
+    private String title;
     private String message;
     private boolean read;
     private String timeAgo;

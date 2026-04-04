@@ -7,6 +7,7 @@ import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.payload.ApiResponse;
 import com.floriano.legato_api.payload.ResponseFactory;
+import com.floriano.legato_api.repositories.SwipeRepository;
 import com.floriano.legato_api.services.UserSevice.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,9 +25,11 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final SwipeRepository swipeRepository;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, SwipeRepository swipeRepository) {
         this.userService = userService;
+        this.swipeRepository = swipeRepository;
     }
 
     @Operation(summary = "Get user by id", description = "Returns the user by id", security = @SecurityRequirement(name = "bearerAuth"))
@@ -45,24 +48,67 @@ public class UserController {
     }
 
     @Operation(
-        summary = "Get users for discovery", 
-        description = "Returns a list of users formatted for the swipe/discovery screen",
+        summary = "Get users for discovery (Filtros Completos)", 
+        description = "Retorna lista para swipe com todos os filtros (idade, distância, limit, etc).",
         security = @SecurityRequirement(name = "bearerAuth")
     )
     @GetMapping("/discovery")
     public ResponseEntity<ApiResponse<List<DiscoveryUserDTO>>> getUsersForDiscovery(
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        
-        // Pega todos os usuários (aqui você pode depois adicionar lógica para excluir o próprio usuário ou quem ele já deu match)
-        List<User> users = userService.findAll(); 
-        
-        List<DiscoveryUserDTO> discoveryList = users.stream()
-                // Filtra para não mostrar o próprio usuário logado na tela de swipe
-                .filter(u -> !u.getId().equals(userPrincipal.getUser().getId()))
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(required = false) String sex,
+            @RequestParam(required = false) List<String> instruments,
+            @RequestParam(required = false) List<String> genres,
+            @RequestParam(required = false) Double minDistance,
+            @RequestParam(required = false) Double maxDistance,
+            @RequestParam(required = false) Integer ageMin,
+            @RequestParam(required = false) Integer ageMax,
+            @RequestParam(defaultValue = "20") int limit) { // Limite padrão de 20 cards
+
+        User myUser = userPrincipal.getUser();
+        Long myId = myUser.getId();
+
+        List<User> allUsers = userService.findAll(); 
+        List<Long> swipedIds = swipeRepository.findSwipedIdsBySwiperId(myId);
+
+        List<DiscoveryUserDTO> discoveryList = allUsers.stream()
+                .filter(u -> !u.getId().equals(myId))
+                .filter(u -> !swipedIds.contains(u.getId())) 
+                .filter(u -> sex == null || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
+                .filter(u -> instruments == null || instruments.isEmpty() || 
+                        u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name())))
+                .filter(u -> genres == null || genres.isEmpty() || 
+                        u.getGenres().stream().anyMatch(genre -> genres.contains(genre.name())))
+                
+                // NOVO: Filtro de Idade
+                .filter(u -> {
+                    if (ageMin == null && ageMax == null) return true;
+                    if (u.getBirthDate() == null) return false; // Se não tem data de nascimento, ignora
+                    
+                    int age = java.time.Period.between(u.getBirthDate(), java.time.LocalDate.now()).getYears();
+                    boolean passMin = ageMin == null || age >= ageMin;
+                    boolean passMax = ageMax == null || age <= ageMax;
+                    return passMin && passMax;
+                })
+
+                // Filtro de Distância (Mantido)
+                .filter(u -> {
+                    if (minDistance == null && maxDistance == null) return true;
+                    if (myUser.getLocation() == null || u.getLocation() == null) return false; 
+
+                    double dist = calculateDistanceInKm(
+                            myUser.getLocation().getLatitude(), myUser.getLocation().getLongitude(),
+                            u.getLocation().getLatitude(), u.getLocation().getLongitude()
+                    );
+
+                    boolean passMin = minDistance == null || dist >= minDistance;
+                    boolean passMax = maxDistance == null || dist <= maxDistance;
+                    return passMin && passMax;
+                })
                 .map(UserMapper::toDiscoveryDTO)
+                .limit(limit) // NOVO: Corta a lista no limite especificado (ex: 20)
                 .toList();
 
-        return ResponseFactory.ok("Usuários para discovery recuperados com sucesso", discoveryList);
+        return ResponseFactory.ok("Usuários recuperados com filtros!", discoveryList);
     }
 
     @Operation(summary = "Get all users", description = "Returns the complete list of registered users", security = @SecurityRequirement(name = "bearerAuth"))
@@ -333,6 +379,19 @@ public class UserController {
     public ResponseEntity<ApiResponse<List<String>>> getFavoriteArtistsMock(@PathVariable Long id) {
         List<String> mockArtists = List.of("Arctic Monkeys", "John Mayer", "Dua Lipa");
         return ResponseEntity.ok(new ApiResponse<>(true, "Artistas recuperados com sucesso", mockArtists));
+    }
+
+    //CALCULO DE DISTÂNCIA ENTRE USUÁRIOS (Haversine) PARA SWIPE POR LOCALIZAÇÃO
+
+    private double calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Raio da Terra em Km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 
 }

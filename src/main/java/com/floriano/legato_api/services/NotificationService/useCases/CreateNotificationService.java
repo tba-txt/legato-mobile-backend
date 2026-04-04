@@ -4,6 +4,7 @@ import com.floriano.legato_api.dto.NotificationDTO.NotificationRequestDTO;
 import com.floriano.legato_api.dto.NotificationDTO.NotificationResponseDTO;
 import com.floriano.legato_api.mapper.NotificationMapper.NotificationMapper;
 import com.floriano.legato_api.model.Notification.Notification;
+import com.floriano.legato_api.model.Notification.enums.NotificationType;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.NotificationRepository;
 import com.floriano.legato_api.repositories.UserRepository;
@@ -28,6 +29,10 @@ public class CreateNotificationService {
         User recipient = userRepository.findById(dto.getRecipientId())
                 .orElseThrow(() -> new IllegalArgumentException("Recipient not found"));
 
+        if (dto.getTitle() == null || dto.getTitle().isBlank()) {
+            dto.setTitle(defaultTitleForType(dto.getType()));
+        }
+
         dto.setCreatedAt(LocalDateTime.now());
         dto.setSenderId(sender.getId());
 
@@ -36,5 +41,20 @@ public class CreateNotificationService {
         notification = notificationRepository.save(notification);
 
         return NotificationMapper.toResponseDTO(notification);
+    }
+
+    private String defaultTitleForType(NotificationType type) {
+        if (type == null) {
+            return "Nova Notificação";
+        }
+
+        return switch (type) {
+            case FOLLOW -> "Novo Seguidor";
+            case LIKE -> "Nova Curtida";
+            case COMMENT -> "Novo Comentário";
+            case CONNECTION_ACCEPTED -> "Conexão Aceita";
+            case CONNECTION_REQUEST -> "Novo Pedido de Conexão";
+            case MESSAGE_RECEIVED -> "Nova Mensagem";
+        };
     }
 }
