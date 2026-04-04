@@ -35,6 +35,7 @@ public class Notification {
 
     private Long targetId;
 
+    private String title;
     private String message;
 
     private boolean read;

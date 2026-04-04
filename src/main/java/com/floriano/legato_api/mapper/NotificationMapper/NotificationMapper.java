@@ -15,6 +15,7 @@ public class NotificationMapper {
         n.setSender(sender);
         n.setRecipient(recipient);
 
+        n.setTitle(dto.getTitle());
         n.setMessage(dto.getMessage());
         n.setType(dto.getType());
         n.setTargetType(dto.getTargetType());
@@ -34,6 +35,7 @@ public class NotificationMapper {
         dto.setSenderName(notification.getSender() != null ? notification.getSender().getUsername() : null);
         dto.setRecipientName(notification.getRecipient() != null ? notification.getRecipient().getUsername() : null);
 
+        dto.setTitle(notification.getTitle());
         dto.setMessage(notification.getMessage());
         dto.setRead(notification.isRead());
         dto.setTimeAgo(notification.getTimeAgo());
