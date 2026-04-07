@@ -6,5 +6,6 @@ public enum NotificationType {
     COMMENT, //falta
     CONNECTION_ACCEPTED,
     CONNECTION_REQUEST,
-    MESSAGE_RECEIVED //falta
+    MESSAGE_RECEIVED, //falta
+    MATCH
 }

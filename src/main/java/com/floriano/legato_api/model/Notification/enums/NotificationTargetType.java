@@ -5,5 +5,6 @@ public enum NotificationTargetType {
     POST,
     COMMENT,
     CONNECTION,
-    MESSAGE
+    MESSAGE,
+    CHAT
 }

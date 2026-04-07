@@ -1,8 +1,10 @@
 package com.floriano.legato_api.controllers.UserController;
 
 import com.floriano.legato_api.dto.ConnectionDTO.ConnectionRequestResponseDTO;
+import com.floriano.legato_api.dto.SwipeDTO.MatchResponseDTO;
 import com.floriano.legato_api.dto.UserDTO.*;
 import com.floriano.legato_api.mapper.user.UserMapper;
+import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.payload.ApiResponse;
@@ -16,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.floriano.legato_api.services.SwipeService.ProcessSwipeService;
 
 import java.util.List;
 
@@ -26,10 +29,12 @@ public class UserController {
 
     private final UserService userService;
     private final SwipeRepository swipeRepository;
+    private final ProcessSwipeService processSwipeService;
 
-    public UserController(UserService userService, SwipeRepository swipeRepository) {
+    public UserController(UserService userService, SwipeRepository swipeRepository, ProcessSwipeService processSwipeService) {
         this.userService = userService;
         this.swipeRepository = swipeRepository;
+        this.processSwipeService = processSwipeService;
     }
 
     @Operation(summary = "Get user by id", description = "Returns the user by id", security = @SecurityRequirement(name = "bearerAuth"))
@@ -47,11 +52,38 @@ public class UserController {
         return ResponseFactory.ok("Usuário recuperada com sucesso!", user);
     }
 
-    @Operation(
-        summary = "Get users for discovery (Filtros Completos)", 
-        description = "Retorna lista para swipe com todos os filtros (idade, distância, limit, etc).",
-        security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Dar um Like", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/discovery/like/{targetId}")
+    public ResponseEntity<ApiResponse<MatchResponseDTO>> likeUser(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long targetId) {
+
+        Long myId = userPrincipal.getUser().getId();
+        if (myId.equals(targetId)) {
+            return ResponseFactory.badRequest("Não é possível curtir a si mesmo.");
+        }
+
+        Chat chat = processSwipeService.execute(myId, targetId, true);
+
+        if (chat != null) {
+            return ResponseFactory.ok("É um match!", new MatchResponseDTO(true, chat.getId()));
+        }
+        return ResponseFactory.ok("Like registrado", new MatchResponseDTO(false, null));
+    }
+
+    @Operation(summary = "Dar um Dislike", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/discovery/dislike/{targetId}")
+    public ResponseEntity<ApiResponse<Void>> dislikeUser(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long targetId) {
+
+        Long myId = userPrincipal.getUser().getId();
+        processSwipeService.execute(myId, targetId, false);
+
+        return ResponseFactory.ok("Dislike registrado", null);
+    }
+
+    @Operation(summary = "Get users for discovery", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/discovery")
     public ResponseEntity<ApiResponse<List<DiscoveryUserDTO>>> getUsersForDiscovery(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
@@ -62,53 +94,51 @@ public class UserController {
             @RequestParam(required = false) Double maxDistance,
             @RequestParam(required = false) Integer ageMin,
             @RequestParam(required = false) Integer ageMax,
-            @RequestParam(defaultValue = "20") int limit) { // Limite padrão de 20 cards
+            @RequestParam(defaultValue = "20") int limit) {
 
         User myUser = userPrincipal.getUser();
         Long myId = myUser.getId();
 
         List<User> allUsers = userService.findAll(); 
         List<Long> swipedIds = swipeRepository.findSwipedIdsBySwiperId(myId);
+        List<Long> usersWhoLikedMe = swipeRepository.findUsersWhoLikedMe(myId);
 
         List<DiscoveryUserDTO> discoveryList = allUsers.stream()
-                .filter(u -> !u.getId().equals(myId))
-                .filter(u -> !swipedIds.contains(u.getId())) 
-                .filter(u -> sex == null || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
-                .filter(u -> instruments == null || instruments.isEmpty() || 
-                        u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name())))
-                .filter(u -> genres == null || genres.isEmpty() || 
-                        u.getGenres().stream().anyMatch(genre -> genres.contains(genre.name())))
+                .filter(u -> !u.getId().equals(myId)) // Remove a mim mesmo
+                .filter(u -> !swipedIds.contains(u.getId())) // Remove quem eu já avaliei
                 
-                // NOVO: Filtro de Idade
+                // NOVO: Remove usuários bloqueados (quem eu bloqueei e quem me bloqueou)
+                .filter(u -> !myUser.getBlockedUsers().contains(u) && !u.getBlockedUsers().contains(myUser))
+
+                // ... (Filtros de Sexo, Instrumentos, Gêneros e Idade mantidos exatamente como estavam antes) ...
+                .filter(u -> sex == null || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
+                .filter(u -> instruments == null || instruments.isEmpty() || u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name())))
+                .filter(u -> genres == null || genres.isEmpty() || u.getGenres().stream().anyMatch(genre -> genres.contains(genre.name())))
                 .filter(u -> {
                     if (ageMin == null && ageMax == null) return true;
-                    if (u.getBirthDate() == null) return false; // Se não tem data de nascimento, ignora
-                    
+                    if (u.getBirthDate() == null) return false;
                     int age = java.time.Period.between(u.getBirthDate(), java.time.LocalDate.now()).getYears();
-                    boolean passMin = ageMin == null || age >= ageMin;
-                    boolean passMax = ageMax == null || age <= ageMax;
-                    return passMin && passMax;
+                    return (ageMin == null || age >= ageMin) && (ageMax == null || age <= ageMax);
                 })
-
-                // Filtro de Distância (Mantido)
                 .filter(u -> {
                     if (minDistance == null && maxDistance == null) return true;
                     if (myUser.getLocation() == null || u.getLocation() == null) return false; 
-
-                    double dist = calculateDistanceInKm(
-                            myUser.getLocation().getLatitude(), myUser.getLocation().getLongitude(),
-                            u.getLocation().getLatitude(), u.getLocation().getLongitude()
-                    );
-
-                    boolean passMin = minDistance == null || dist >= minDistance;
-                    boolean passMax = maxDistance == null || dist <= maxDistance;
-                    return passMin && passMax;
+                    double dist = calculateDistanceInKm(myUser.getLocation().getLatitude(), myUser.getLocation().getLongitude(), u.getLocation().getLatitude(), u.getLocation().getLongitude());
+                    return (minDistance == null || dist >= minDistance) && (maxDistance == null || dist <= maxDistance);
                 })
+                
+                // NOVO: ORDENAÇÃO! Quem me curtiu (usersWhoLikedMe) aparece no topo!
+                .sorted((u1, u2) -> {
+                    boolean u1LikedMe = usersWhoLikedMe.contains(u1.getId());
+                    boolean u2LikedMe = usersWhoLikedMe.contains(u2.getId());
+                    return Boolean.compare(u2LikedMe, u1LikedMe); // true ganha de false
+                })
+                
                 .map(UserMapper::toDiscoveryDTO)
-                .limit(limit) // NOVO: Corta a lista no limite especificado (ex: 20)
+                .limit(limit)
                 .toList();
 
-        return ResponseFactory.ok("Usuários recuperados com filtros!", discoveryList);
+        return ResponseFactory.ok("Usuários recuperados com sucesso!", discoveryList);
     }
 
     @Operation(summary = "Get all users", description = "Returns the complete list of registered users", security = @SecurityRequirement(name = "bearerAuth"))

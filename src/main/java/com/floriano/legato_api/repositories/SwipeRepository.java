@@ -20,4 +20,8 @@ public interface SwipeRepository extends JpaRepository<Swipe, Long> {
     // Adicione isso no seu SwipeRepository
     @Query("SELECT s.swiped.id FROM Swipe s WHERE s.swiper.id = :swiperId")
     List<Long> findSwipedIdsBySwiperId(@Param("swiperId") Long swiperId);
+
+    @Query("SELECT s.swiped.id FROM Swipe s WHERE s.swiper.id = :swiperId AND s.isLike = true")
+    List<Long> findUsersWhoLikedMe(@Param("swiperId") Long swiperId);
+
 }
