@@ -55,6 +55,8 @@ public class CreateNotificationService {
             case CONNECTION_ACCEPTED -> "Conexão Aceita";
             case CONNECTION_REQUEST -> "Novo Pedido de Conexão";
             case MESSAGE_RECEIVED -> "Nova Mensagem";
+            case MATCH -> "Novo Match";
+            default -> "Nova Notificação";
         };
     }
 }

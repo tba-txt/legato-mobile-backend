@@ -25,7 +25,7 @@ public class ProcessSwipeService {
     private final NotificationService notificationService;
 
     @Transactional
-    public boolean execute(Long swiperId, Long swipedId, boolean isLike) {
+    public Chat execute(Long swiperId, Long swipedId, boolean isLike) {
         User swiper = userService.findById(swiperId);
         User swiped = userService.findById(swipedId);
 
@@ -35,39 +35,39 @@ public class ProcessSwipeService {
         swipe.setLike(isLike);
         swipeRepository.save(swipe);
 
-        if (!isLike) return false;
+        if (!isLike) return null;
 
         boolean hasMatch = swipeRepository.findBySwiperAndSwipedAndIsLikeTrue(swiped, swiper).isPresent();
 
         if (hasMatch) {
-            // 1. Cria o Chat
             Chat chat = chatService.getOrCreateChatBetween(swiper, swiped);
 
-            // 2. Dispara notificações para os dois usuários usando o DTO esperado pelo serviço
+            // Notifica quem recebeu o like final
             NotificationRequestDTO toSwiped = new NotificationRequestDTO();
             toSwiped.setSenderId(swiperId);
             toSwiped.setRecipientId(swipedId);
-            toSwiped.setTitle("Novo Match");
-            toSwiped.setMessage("Você deu match com " + swiper.getUsername());
-            toSwiped.setType(NotificationType.LIKE);
-            toSwiped.setTargetType(NotificationTargetType.USER);
-            toSwiped.setTargetId(swiperId);
+            toSwiped.setTitle("Novo Match!");
+            toSwiped.setMessage("Vocês deram match! Comece uma conversa.");
+            toSwiped.setType(NotificationType.MATCH);
+            toSwiped.setTargetType(NotificationTargetType.CHAT);
+            toSwiped.setTargetId(chat.getId()); // O ID da conversa pro front redirecionar
 
+            // Notifica quem deu o último like
             NotificationRequestDTO toSwiper = new NotificationRequestDTO();
             toSwiper.setSenderId(swipedId);
             toSwiper.setRecipientId(swiperId);
-            toSwiper.setTitle("Novo Match");
-            toSwiper.setMessage("Você deu match com " + swiped.getUsername());
-            toSwiper.setType(NotificationType.LIKE);
-            toSwiper.setTargetType(NotificationTargetType.USER);
-            toSwiper.setTargetId(swipedId);
+            toSwiper.setTitle("Novo Match!");
+            toSwiper.setMessage("Vocês deram match! Comece uma conversa.");
+            toSwiper.setType(NotificationType.MATCH);
+            toSwiper.setTargetType(NotificationTargetType.CHAT);
+            toSwiper.setTargetId(chat.getId()); 
 
             notificationService.createNotification(toSwiped);
             notificationService.createNotification(toSwiper);
             
-            return true;
+            return chat; // Retorna o chat criado
         }
 
-        return false;
+        return null;
     }
 }
