@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.floriano.legato_api.services.SwipeService.ProcessSwipeService;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -84,6 +85,7 @@ public class UserController {
     }
 
     @Operation(summary = "Get users for discovery", security = @SecurityRequirement(name = "bearerAuth"))
+    @Transactional(readOnly = true) // <-- ISSO AQUI MANTÉM O BANCO ABERTO PRO STREAM FUNCIONAR
     @GetMapping("/discovery")
     public ResponseEntity<ApiResponse<List<DiscoveryUserDTO>>> getUsersForDiscovery(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
@@ -96,7 +98,9 @@ public class UserController {
             @RequestParam(required = false) Integer ageMax,
             @RequestParam(defaultValue = "20") int limit) {
 
-        User myUser = userPrincipal.getUser();
+        // <-- RECARREGA O USUÁRIO PARA RECONECTAR ELE AO HIBERNATE
+        limit = Math.min(Math.max(limit, 1), 50);
+        User myUser = userService.findById(userPrincipal.getUser().getId()); 
         Long myId = myUser.getId();
 
         List<User> allUsers = userService.findAll(); 
@@ -104,16 +108,23 @@ public class UserController {
         List<Long> usersWhoLikedMe = swipeRepository.findUsersWhoLikedMe(myId);
 
         List<DiscoveryUserDTO> discoveryList = allUsers.stream()
-                .filter(u -> !u.getId().equals(myId)) // Remove a mim mesmo
-                .filter(u -> !swipedIds.contains(u.getId())) // Remove quem eu já avaliei
+                .filter(u -> !u.getId().equals(myId)) 
+                .filter(u -> !swipedIds.contains(u.getId())) 
                 
-                // NOVO: Remove usuários bloqueados (quem eu bloqueei e quem me bloqueou)
-                .filter(u -> !myUser.getBlockedUsers().contains(u) && !u.getBlockedUsers().contains(myUser))
+                // Agora o myUser.getBlockedUsers() vai funcionar lindamente!
+                .filter(u -> (myUser.getBlockedUsers() == null || !myUser.getBlockedUsers().contains(u)) && 
+                             (u.getBlockedUsers() == null || !u.getBlockedUsers().contains(myUser)))
 
-                // ... (Filtros de Sexo, Instrumentos, Gêneros e Idade mantidos exatamente como estavam antes) ...
-                .filter(u -> sex == null || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
-                .filter(u -> instruments == null || instruments.isEmpty() || u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name())))
-                .filter(u -> genres == null || genres.isEmpty() || u.getGenres().stream().anyMatch(genre -> genres.contains(genre.name())))
+                // ... o resto dos filtros continua EXATAMENTE igual daqui para baixo ...
+                .filter(u -> sex == null || sex.isBlank() || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
+                
+                // PROTEÇÃO: Trata lista vazia do Swagger e listas nulas do Banco de Dados
+                .filter(u -> instruments == null || instruments.isEmpty() || (instruments.size() == 1 && instruments.get(0).isBlank()) || 
+                        (u.getInstruments() != null && u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name()))))
+                        
+                .filter(u -> genres == null || genres.isEmpty() || (genres.size() == 1 && genres.get(0).isBlank()) || 
+                        (u.getGenres() != null && u.getGenres().stream().anyMatch(genre -> genres.contains(genre.name()))))
+                
                 .filter(u -> {
                     if (ageMin == null && ageMax == null) return true;
                     if (u.getBirthDate() == null) return false;
@@ -127,11 +138,11 @@ public class UserController {
                     return (minDistance == null || dist >= minDistance) && (maxDistance == null || dist <= maxDistance);
                 })
                 
-                // NOVO: ORDENAÇÃO! Quem me curtiu (usersWhoLikedMe) aparece no topo!
+                // ORDENAÇÃO: Quem me curtiu (usersWhoLikedMe) aparece no topo!
                 .sorted((u1, u2) -> {
                     boolean u1LikedMe = usersWhoLikedMe.contains(u1.getId());
                     boolean u2LikedMe = usersWhoLikedMe.contains(u2.getId());
-                    return Boolean.compare(u2LikedMe, u1LikedMe); // true ganha de false
+                    return Boolean.compare(u2LikedMe, u1LikedMe); 
                 })
                 
                 .map(UserMapper::toDiscoveryDTO)
