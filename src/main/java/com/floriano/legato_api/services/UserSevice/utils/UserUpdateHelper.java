@@ -30,6 +30,10 @@ public class UserUpdateHelper {
         if (dto.getBio() != null)
             user.setBio(dto.getBio());
 
+        if (dto.getObjective() != null) {
+            user.setObjective(dto.getObjective());
+        }
+
     }
 
     public static void updateMusicPreferences(User user, UserUpdateDTO dto) {
