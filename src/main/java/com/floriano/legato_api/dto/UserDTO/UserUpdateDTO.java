@@ -15,6 +15,7 @@ public class UserUpdateDTO {
     private List<String> photosCard;
     private String sex;
     private String bio;
+    private String objective;
 
     private List<String> instruments;
     private List<String> genres;

@@ -87,7 +87,8 @@ public class AuthenticationController {
 
             boolean isHuman = recaptchaService.validateToken(data.recaptchaToken());
             
-           /* if (!isHuman) {
+           /* if (!isHuman) {[
+           ]
                 return ResponseFactory.forbidden("Falha na validação do reCAPTCHA. Você é um robô?");
             } */ //comentado para facilitar os testes, mas deve ser descomentado para produção
 
