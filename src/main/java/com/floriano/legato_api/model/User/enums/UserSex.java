@@ -2,8 +2,9 @@ package com.floriano.legato_api.model.User.enums;
 
 public enum UserSex {
     MALE("man"),
-    WOMEN("women"),
-    OTHER("other");
+    FEMALE("women"),
+    OTHER("other"),
+    PREFER_NOT_TO_SAY("Prefiro não dizer");
 
     private String sex;
 
