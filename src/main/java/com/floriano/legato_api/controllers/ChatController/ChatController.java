@@ -153,6 +153,9 @@ public class ChatController {
                 return ResponseEntity.status(403).build();
             }
 
+            chatMessageService.markMessagesAsRead(chatId, currentUser.getId());
+            // -----------------------------------------------------------------------
+
             List<ChatMessageDTO> messages = chat.getMessages().stream()
                     .map(ChatMessageDTO::from)
                     .collect(Collectors.toList());
@@ -163,4 +166,20 @@ public class ChatController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @MessageMapping("/chat/{chatId}/read")
+    public void processReadReceipt(@DestinationVariable Long chatId, Principal principal) {
+        String userEmail = principal.getName();
+        User reader = userService.findByEmail(userEmail);
+
+        if (reader != null) {
+            // 1. Atualiza no banco que o 'reader' leu as mensagens do 'chatId'
+            chatMessageService.markMessagesAsRead(chatId, reader.getId());
+
+            // 2. Avisa o outro usuário (remetente original) que as mensagens foram lidas
+            // O Front-end deve escutar esse tópico para pintar os checks de azul
+            messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/readReceipt", "READ");
+        }
+    }
 }
+

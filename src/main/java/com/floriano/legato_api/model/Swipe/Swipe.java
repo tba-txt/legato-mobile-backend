@@ -7,7 +7,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "swipes")
+@Table(
+    name = "swipes",
+    // BLINDAGEM 1: O Banco de Dados nunca vai aceitar dois swipes da mesma pessoa para o mesmo alvo.
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"swiper_id", "swiped_id"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,14 +26,14 @@ public class Swipe {
 
     @ManyToOne
     @JoinColumn(name = "swiper_id", nullable = false)
-    private User swiper; // Quem deu o swipe
+    private User swiper;
 
     @ManyToOne
     @JoinColumn(name = "swiped_id", nullable = false)
-    private User swiped; // Quem recebeu o swipe
+    private User swiped;
 
     @Column(name = "is_like", nullable = false)
-    private boolean isLike; // true = Like, false = Dislike (Pass)
+    private boolean isLike;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 }
