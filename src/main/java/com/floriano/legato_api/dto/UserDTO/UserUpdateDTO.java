@@ -42,5 +42,6 @@ public class UserUpdateDTO {
         private String spotify;
         private String youtube;
         private String website;
+        private String soundcloud;
     }
 }

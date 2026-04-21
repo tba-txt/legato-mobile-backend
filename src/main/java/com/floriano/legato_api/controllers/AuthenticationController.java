@@ -10,6 +10,10 @@ import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.payload.ResponseFactory;
 import com.floriano.legato_api.repositories.UserRepository;
 import com.floriano.legato_api.services.AuthorizationService.RecaptchaService;
+import com.floriano.legato_api.model.User.enums.InstrumentList;
+import com.floriano.legato_api.model.User.enums.Genre;
+import com.floriano.legato_api.model.User.enums.UserSex;
+import com.floriano.legato_api.model.User.AuxiliaryEntity.ExternalLinks;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -66,31 +70,11 @@ public class AuthenticationController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterDto data) {
         try {
-            /*
-            // Ative este bloco quando quiser endurecer validacoes de cadastro.
-            if (data.email() == null || data.email().isBlank() || !EMAIL_PATTERN.matcher(data.email()).matches()) {
-                return ResponseFactory.badRequest("Email invalido.");
-            }
-
-            if (data.password() == null || data.password().isBlank() || !PASSWORD_PATTERN.matcher(data.password()).matches()) {
-                return ResponseFactory.badRequest("A senha deve ter no minimo 8 caracteres, 1 letra maiuscula e 1 caractere especial.");
-            }
-
-            if (data.username() == null || data.username().trim().length() < 5) {
-                return ResponseFactory.badRequest("Username deve ter no minimo 5 caracteres.");
-            }
-
-            if (data.displayName() == null || data.displayName().trim().length() < 5) {
-                return ResponseFactory.badRequest("Display name deve ter no minimo 5 caracteres.");
-            }
-            */
-
             boolean isHuman = recaptchaService.validateToken(data.recaptchaToken());
             
-           /* if (!isHuman) {[
-           ]
+           /* if (!isHuman) {
                 return ResponseFactory.forbidden("Falha na validação do reCAPTCHA. Você é um robô?");
-            } */ //comentado para facilitar os testes, mas deve ser descomentado para produção
+            } */ // comentado para facilitar os testes
 
             if (this.userRepository.findByEmail(data.email()).isPresent()) {
                 return ResponseFactory.badRequest("Email already exists");
@@ -111,6 +95,43 @@ public class AuthenticationController {
             User newUser = new User(data.email(), encryptedPassword, data.role(), data.username(), data.displayName());
             newUser.setBirthDate(data.birthDate());
 
+            // --- MAPEAMENTO DOS NOVOS CAMPOS DO PERFIL INICIAL ---
+            newUser.setBio(data.bio());
+            newUser.setObjective(data.objective());
+
+            if (data.sex() != null && !data.sex().isBlank()) {
+                newUser.setSex(UserSex.valueOf(data.sex().toUpperCase()));
+            }
+
+            if (data.instruments() != null && !data.instruments().isEmpty()) {
+                // Tipagem explícita (String i) ajuda a IDE caso o import falhe no futuro, mas no Java 22 é redundante se o import estiver correto.
+                newUser.setInstruments(
+                    data.instruments().stream()
+                        .map((String i) -> InstrumentList.valueOf(i.toUpperCase()))
+                        .toList()
+                );
+            }
+
+            if (data.genres() != null && !data.genres().isEmpty()) {
+                newUser.setGenres(
+                    data.genres().stream()
+                        .map((String g) -> Genre.valueOf(g.toUpperCase()))
+                        .toList()
+                );
+            }
+
+            if (data.links() != null) {
+                ExternalLinks externalLinks = new ExternalLinks();
+                externalLinks.setSpotify(data.links().getSpotify());
+                externalLinks.setSoundcloud(data.links().getSoundcloud());
+                externalLinks.setInstagram(data.links().getInstagram());
+                externalLinks.setYoutube(data.links().getYoutube());
+                externalLinks.setWebsite(data.links().getWebsite());
+                
+                newUser.setLinks(externalLinks);
+            }
+            // -----------------------------------------------------
+            
             this.userRepository.save(newUser);
 
             var token = tokenService.generateToken(newUser);
@@ -119,6 +140,8 @@ public class AuthenticationController {
 
             return ResponseFactory.ok("Usuário cadastrado com sucesso!", response);
 
+        } catch (IllegalArgumentException e) {
+            return ResponseFactory.badRequest("Dados de perfil inválidos: verifique os valores de sexo, instrumentos ou gêneros. Lembre-se de enviar exatamente como no Enum (ex: 'GUITARRA', 'ROCK'). Detalhe: " + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseFactory.badRequest("Error: " + e.getMessage());

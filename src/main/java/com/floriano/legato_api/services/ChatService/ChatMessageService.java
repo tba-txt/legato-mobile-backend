@@ -6,6 +6,11 @@ import com.floriano.legato_api.model.Notification.enums.NotificationTargetType;
 import com.floriano.legato_api.model.Notification.enums.NotificationType;
 import com.floriano.legato_api.repositories.ChatMessageRepository;
 import com.floriano.legato_api.services.NotificationService.useCases.CreateNotificationService;
+
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,6 +22,11 @@ public class ChatMessageService {
     public ChatMessageService(ChatMessageRepository chatMessageRepository, CreateNotificationService createNotificationService) {
         this.chatMessageRepository = chatMessageRepository;
         this.createNotificationService = createNotificationService;
+    }
+
+    @Transactional
+    public void markMessagesAsRead(Long chatId, Long receiverId) {
+        chatMessageRepository.markMessagesAsRead(chatId, receiverId, LocalDateTime.now());
     }
 
     public ChatMessage saveMessage(ChatMessage message) {

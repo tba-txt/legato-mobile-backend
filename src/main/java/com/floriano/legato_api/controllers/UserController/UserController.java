@@ -415,13 +415,6 @@ public class UserController {
     }
 
 
-    // mock de spotify, remover depois
-    @GetMapping("/musicians/{id}/favorite-artists")
-    public ResponseEntity<ApiResponse<List<String>>> getFavoriteArtistsMock(@PathVariable Long id) {
-        List<String> mockArtists = List.of("Arctic Monkeys", "John Mayer", "Dua Lipa");
-        return ResponseEntity.ok(new ApiResponse<>(true, "Artistas recuperados com sucesso", mockArtists));
-    }
-
     //CALCULO DE DISTÂNCIA ENTRE USUÁRIOS (Haversine) PARA SWIPE POR LOCALIZAÇÃO
 
     private double calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {

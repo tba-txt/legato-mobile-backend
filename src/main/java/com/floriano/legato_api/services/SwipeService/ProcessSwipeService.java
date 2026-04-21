@@ -29,6 +29,13 @@ public class ProcessSwipeService {
         User swiper = userService.findById(swiperId);
         User swiped = userService.findById(swipedId);
 
+        // BLINDAGEM 3: Idempotência. Se o front end mandar 2 likes seguidos, 
+        // o segundo vai bater aqui e a gente ignora ele antes de tentar salvar.
+        if (swipeRepository.existsBySwiperAndSwiped(swiper, swiped)) {
+            // Pode retornar null. O front não deve fazer nada se for um duplicate.
+            return null; 
+        }
+
         Swipe swipe = new Swipe();
         swipe.setSwiper(swiper);
         swipe.setSwiped(swiped);
@@ -37,7 +44,8 @@ public class ProcessSwipeService {
 
         if (!isLike) return null;
 
-        boolean hasMatch = swipeRepository.findBySwiperAndSwipedAndIsLikeTrue(swiped, swiper).isPresent();
+        // Agora usando o nosso novo método exists... que é seguro contra duplicidades.
+        boolean hasMatch = swipeRepository.existsBySwiperAndSwipedAndIsLikeTrue(swiped, swiper);
 
         if (hasMatch) {
             Chat chat = chatService.getOrCreateChatBetween(swiper, swiped);
@@ -50,7 +58,7 @@ public class ProcessSwipeService {
             toSwiped.setMessage("Vocês deram match! Comece uma conversa.");
             toSwiped.setType(NotificationType.MATCH);
             toSwiped.setTargetType(NotificationTargetType.CHAT);
-            toSwiped.setTargetId(chat.getId()); // O ID da conversa pro front redirecionar
+            toSwiped.setTargetId(chat.getId());
 
             // Notifica quem deu o último like
             NotificationRequestDTO toSwiper = new NotificationRequestDTO();
@@ -65,7 +73,7 @@ public class ProcessSwipeService {
             notificationService.createNotification(toSwiped);
             notificationService.createNotification(toSwiper);
             
-            return chat; // Retorna o chat criado
+            return chat;
         }
 
         return null;

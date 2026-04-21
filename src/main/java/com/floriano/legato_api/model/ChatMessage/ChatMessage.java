@@ -33,5 +33,16 @@ public class ChatMessage {
     private User receiver;
 
     private String content;
+    
     private LocalDateTime timestamp = LocalDateTime.now();
+
+    // --- NOVOS CAMPOS PARA CONTROLE DE LEITURA ---
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private MessageStatus status = MessageStatus.SENT;
+
+    @Column(name = "read_at")
+    private LocalDateTime readAt; // Fica null até o usuário abrir o chat
 }
