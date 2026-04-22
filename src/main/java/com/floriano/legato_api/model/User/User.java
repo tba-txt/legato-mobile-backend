@@ -153,6 +153,13 @@ public class User {
         this.displayName = displayName;
     }
 
+    // INTEGRAÇÃO SPOTIFY
+    @Column(name = "spotify_access_token", columnDefinition = "text")
+    private String spotifyAccessToken;
+
+    @Column(name = "spotify_refresh_token", columnDefinition = "text")
+    private String spotifyRefreshToken;
+
     // CHAT
 
     @Column(name = "is_online")

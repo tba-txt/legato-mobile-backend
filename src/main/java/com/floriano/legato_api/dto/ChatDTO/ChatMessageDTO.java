@@ -2,7 +2,8 @@ package com.floriano.legato_api.dto.ChatDTO;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
-import com.floriano.legato_api.model.ChatMessage.MessageStatus; 
+import com.floriano.legato_api.model.ChatMessage.MessageStatus;
+import com.floriano.legato_api.model.Post.TypeMedia; // IMPORTANTE
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,11 +21,14 @@ public class ChatMessageDTO {
     private String senderName;
     private String senderEmail;
 
-    // --- NOVOS CAMPOS ---
     private MessageStatus status;
     
     @JsonFormat(pattern = "dd/MM/yyyy HH:mm")
     private LocalDateTime readAt;
+
+    // --- CAMPOS DE MÍDIA ---
+    private TypeMedia typeMedia;
+    private String mediaUrl;
 
     public static ChatMessageDTO from(ChatMessage message) {
         return ChatMessageDTO.builder()
@@ -35,6 +39,8 @@ public class ChatMessageDTO {
                 .senderEmail(message.getSender() != null ? message.getSender().getEmail() : "?")
                 .status(message.getStatus() != null ? message.getStatus() : MessageStatus.SENT)
                 .readAt(message.getReadAt())
+                .typeMedia(message.getTypeMedia() != null ? message.getTypeMedia() : TypeMedia.NONE)
+                .mediaUrl(message.getMediaUrl())
                 .build();
     }
 }
