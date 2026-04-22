@@ -1,7 +1,9 @@
 package com.floriano.legato_api.model.ChatMessage;
 
 import com.floriano.legato_api.model.Chat.Chat;
+import com.floriano.legato_api.model.Post.TypeMedia;
 import com.floriano.legato_api.model.User.User;
+import com.floriano.legato_api.model.Post.TypeMedia;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -45,4 +47,13 @@ public class ChatMessage {
 
     @Column(name = "read_at")
     private LocalDateTime readAt; // Fica null até o usuário abrir o chat
+
+    // --- NOVOS CAMPOS PARA MÍDIA ---
+    
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private TypeMedia typeMedia = TypeMedia.NONE;
+
+    @Column(name = "media_url")
+    private String mediaUrl; 
 }

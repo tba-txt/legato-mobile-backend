@@ -5,9 +5,13 @@ import com.floriano.legato_api.dto.ChatDTO.ChatSummaryDTO;
 import com.floriano.legato_api.dto.ChatDTO.TypingDTO;
 import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
+import com.floriano.legato_api.model.ChatMessage.MessageStatus;
+import com.floriano.legato_api.model.Post.TypeMedia;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.services.ChatService.ChatMessageService;
 import com.floriano.legato_api.services.ChatService.ChatService;
+import com.floriano.legato_api.services.CloudinaryService.CloudinaryService;
+import com.floriano.legato_api.services.PostService.Utils.DetermineMediaType;
 import com.floriano.legato_api.services.UserSevice.UserService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,8 +27,11 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -43,15 +50,18 @@ public class ChatController {
     private final ChatService chatService;
     private final ChatMessageService chatMessageService;
     private final UserService userService;
+    private final CloudinaryService cloudinaryService;
 
-    public ChatController(SimpMessagingTemplate messagingTemplate,
+public ChatController(SimpMessagingTemplate messagingTemplate,
                           ChatService chatService,
                           ChatMessageService chatMessageService,
-                          UserService userService) {
+                          UserService userService,
+                          CloudinaryService cloudinaryService) { 
         this.messagingTemplate = messagingTemplate;
         this.chatService = chatService;
         this.chatMessageService = chatMessageService;
         this.userService = userService;
+        this.cloudinaryService = cloudinaryService; 
     }
 
     @Transactional
@@ -179,6 +189,76 @@ public class ChatController {
             // 2. Avisa o outro usuário (remetente original) que as mensagens foram lidas
             // O Front-end deve escutar esse tópico para pintar os checks de azul
             messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/readReceipt", "READ");
+        }
+    }
+
+    @Transactional
+    @PostMapping(value = "/{chatId}/messages/media", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadMediaMessage(
+            @PathVariable Long chatId,
+            @RequestParam("file") MultipartFile file,
+            Principal principal) {
+        
+        try {
+            String fromEmail = principal.getName();
+            User sender = userService.findByEmail(fromEmail);
+            Chat chat = chatService.getChatById(chatId);
+
+            if (sender == null || chat == null) {
+                return ResponseEntity.badRequest().body("Usuário ou Chat inválido.");
+            }
+
+            // Trava de segurança: garantir que quem está mandando pertence ao chat
+            boolean isParticipant = chat.getParticipants().stream()
+                    .anyMatch(p -> p.getId().equals(sender.getId()));
+            if (!isParticipant) {
+                return ResponseEntity.status(403).build();
+            }
+
+            User receiver = chat.getParticipants().stream()
+                    .filter(p -> !p.getId().equals(sender.getId()))
+                    .findFirst()
+                    .orElse(null);
+
+            // 1. Upload para o Cloudinary organizando por pasta do chat
+            String folderName = "legato/chats/chat_" + chatId; 
+            String fileUrl = cloudinaryService.uploadFile(file, folderName);
+
+            // 2. Usa a sua classe utilitária que já existe para descobrir se é Áudio, Vídeo ou Imagem
+            TypeMedia typeMedia = DetermineMediaType.determineMediaType(file);
+            if (typeMedia == null) typeMedia = TypeMedia.NONE;
+
+            // 3. Monta e salva a mensagem
+            ChatMessage message = ChatMessage.builder()
+                    .chat(chat)
+                    .sender(sender)
+                    .receiver(receiver)
+                    .typeMedia(typeMedia)
+                    .mediaUrl(fileUrl)
+                    .content(typeMedia == TypeMedia.AUDIO ? "Mensagem de voz" : "Arquivo de mídia")
+                    .timestamp(LocalDateTime.now())
+                    .status(MessageStatus.SENT)
+                    .build();
+
+            ChatMessage saved = chatMessageService.saveMessage(message);
+            chat.addMessage(saved);
+            chatService.saveChat(chat);
+
+            // 4. Avisa o destinatário via WebSocket em tempo real
+            if (receiver != null) {
+                messagingTemplate.convertAndSendToUser(
+                        receiver.getEmail(),
+                        "/queue/messages",
+                        ChatMessageDTO.from(saved)
+                );
+            }
+
+            // Retorna a mensagem processada pro remetente desenhar na tela
+            return ResponseEntity.ok(ChatMessageDTO.from(saved));
+
+        } catch (Exception e) {
+            logger.error("Erro ao enviar mídia no chat: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Erro no upload: " + e.getMessage());
         }
     }
 }
