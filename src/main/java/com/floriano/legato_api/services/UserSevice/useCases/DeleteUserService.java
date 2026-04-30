@@ -1,26 +1,29 @@
 package com.floriano.legato_api.services.UserSevice.useCases;
 
-import com.floriano.legato_api.exceptions.UserNotFoundException;
 import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.UserRepository;
-import com.floriano.legato_api.services.UserSevice.utils.UserDeleteHelper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class DeleteUserService {
 
-    private UserRepository userRepository;
-    private UserDeleteHelper userDeleteHelper;
+    private final UserRepository userRepository;
 
-    public DeleteUserService(UserRepository userRepository, UserDeleteHelper userDeleteHelper) {
-        this.userRepository = userRepository;
-        this.userDeleteHelper = userDeleteHelper;
-    }
+    @Transactional
+    public void execute(String email) { 
+        User user = userRepository.findByEmail(email) 
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-    public void execute(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new UserNotFoundException("Usuário com id " + id + " não encontrado"));
-
-        userDeleteHelper.deleteUserAndCleanup(user);
+        // Lógica de Soft Delete
+        user.setActive(false);
+        
+        user.setDisplayName("Usuário Excluído");
+        user.setProfilePicture(null); 
+        user.setBio(null);
+        
+        userRepository.save(user);
     }
 }

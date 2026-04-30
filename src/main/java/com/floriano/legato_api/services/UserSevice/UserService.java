@@ -73,8 +73,8 @@ public class UserService {
         return updateUserService.execute(id, dto);
     }
 
-    public void deleteUser(Long id) {
-        deleteUserService.execute(id);
+    public void deleteUser(String email) {
+        deleteUserService.execute(email);
     }
 
     public UserResponseDTO updateImg(Long id, MultipartFile file, String imageType) {

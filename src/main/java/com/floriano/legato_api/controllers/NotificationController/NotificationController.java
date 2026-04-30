@@ -5,12 +5,15 @@ import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.payload.ApiResponse;
 import com.floriano.legato_api.payload.ResponseFactory;
 import com.floriano.legato_api.services.NotificationService.NotificationService;
+import com.floriano.legato_api.services.NotificationService.useCases.CountUnreadNotificationsService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +25,8 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final CountUnreadNotificationsService countUnreadNotificationsService;
+
 
     @Operation(
             summary = "List notifications of authenticated user",
@@ -38,6 +43,16 @@ public class NotificationController {
 
         return ResponseFactory.ok("Notifications retrieved successfully", notifications);
     }
+
+    @GetMapping("/unread-count")
+        public ResponseEntity<ApiResponse<Long>> getUnreadCount() {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long userId = userPrincipal.getUser().getId();
+        
+        long count = countUnreadNotificationsService.execute(userId);
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, "Contagem não lida", count));
+        }
 
     @Operation(
             summary = "Delete a notification by ID",

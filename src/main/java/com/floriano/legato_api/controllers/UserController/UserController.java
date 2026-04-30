@@ -187,9 +187,9 @@ public class UserController {
     }
 
     @Operation(summary = "Delete user", description = "Deletes a user by ID and cleans up related entities", security = @SecurityRequirement(name = "bearerAuth"))
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
+    @DeleteMapping("/{email}")
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String email) {
+        userService.deleteUser(email);
         return ResponseFactory.ok("Usuário deletado com sucesso!");
     }
 

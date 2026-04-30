@@ -53,7 +53,11 @@ public class UserDeleteHelper {
         }
 
         // LINKS E LOCALIZAÇÃO
-        user.setLinks(null);
+        user.setInstagram(null);
+        user.setSoundcloud(null);
+        user.setSpotify(null);
+        user.setYoutube(null);
+        user.setWebsite(null);
         user.setLocation(null);
 
         // REMOVER DO REPOSITÓRIO

@@ -79,11 +79,26 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                 return;
             }
 
+            boolean hasBlockedReceiver = sender.getBlockedUsers().contains(receiver);
+            boolean isBlockedByReceiver = receiver.getBlockedUsers().contains(sender);
+
+            if (hasBlockedReceiver || isBlockedByReceiver) {
+                logger.warn("Bloqueio ativo: Mensagem ignorada entre sender {} e receiver {}", sender.getId(), receiver.getId());
+                return; 
+            }
+
             Chat chat = chatService.getOrCreateChatBetween(sender, receiver);
 
             message.setChat(chat);
             message.setSender(sender);
             message.setTimestamp(LocalDateTime.now());
+
+            if (message.getRepliedMessage() != null && message.getRepliedMessage().getId() != null) {
+                ChatMessage originalMessage = chatMessageService.findById(message.getRepliedMessage().getId());
+                message.setRepliedMessage(originalMessage);
+            } else {
+                message.setRepliedMessage(null);
+            }
 
             ChatMessage saved = chatMessageService.saveMessage(message);
             chat.addMessage(saved);

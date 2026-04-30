@@ -83,22 +83,23 @@ public class UserUpdateHelper {
         user.setLocation(location);
     }
 
-    public static void updateExternalLinks(User user, UserUpdateDTO dto) {
+public static void updateExternalLinks(User user, UserUpdateDTO dto) {
         if (dto.getLinks() == null) return;
 
-        ExternalLinks links = user.getLinks();
-        if (links == null) links = new ExternalLinks();
-
         if (dto.getLinks().getInstagram() != null)
-            links.setInstagram(dto.getLinks().getInstagram());
+            user.setInstagram(dto.getLinks().getInstagram());
+            
         if (dto.getLinks().getSpotify() != null)
-            links.setSpotify(dto.getLinks().getSpotify());
+            user.setSpotify(dto.getLinks().getSpotify());
+            
         if (dto.getLinks().getYoutube() != null)
-            links.setYoutube(dto.getLinks().getYoutube());
+            user.setYoutube(dto.getLinks().getYoutube());
+            
+        if (dto.getLinks().getSoundcloud() != null)
+            user.setSoundcloud(dto.getLinks().getSoundcloud());
+            
         if (dto.getLinks().getWebsite() != null)
-            links.setWebsite(dto.getLinks().getWebsite());
-
-        user.setLinks(links);
+            user.setWebsite(dto.getLinks().getWebsite());
     }
 }
 

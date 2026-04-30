@@ -41,6 +41,13 @@ public class SecurityFilter extends OncePerRequestFilter {
 
             if (userOpt.isPresent()) {
                 var user = userOpt.get();
+                
+                if (!user.isActive()) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN); 
+                    response.getWriter().write("Conta desativada. Faça login novamente.");
+                    return; 
+                }
+
                 var authentication = new UsernamePasswordAuthenticationToken(
                         new UserPrincipal(user),
                         null,

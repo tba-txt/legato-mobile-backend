@@ -2,7 +2,9 @@ package com.floriano.legato_api.services.AuthorizationService;
 
 import com.floriano.legato_api.model.User.UserPrincipal;
 import com.floriano.legato_api.repositories.UserRepository;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -15,10 +17,15 @@ public class AuthorizationService implements UserDetailsService {
     private UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado: " + username));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        var user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
 
-        return new UserPrincipal(user);
+        if (!user.isActive()) {
+            throw new DisabledException("Esta conta foi desativada.");
+        }
+        // ----------------------------
+
+        return new UserPrincipal(user); 
     }
 }

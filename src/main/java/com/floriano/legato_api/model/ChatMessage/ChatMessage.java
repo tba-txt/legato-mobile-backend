@@ -34,6 +34,10 @@ public class ChatMessage {
     @JoinColumn(name = "receiver_id")
     private User receiver;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "replied_message_id")
+    private ChatMessage repliedMessage;
+
     private String content;
     
     private LocalDateTime timestamp = LocalDateTime.now();

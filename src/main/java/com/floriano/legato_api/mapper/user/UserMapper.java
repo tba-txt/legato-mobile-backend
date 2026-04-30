@@ -4,6 +4,7 @@ import com.floriano.legato_api.dto.UserDTO.DiscoveryUserDTO;
 import com.floriano.legato_api.dto.UserDTO.UserListDTO;
 import com.floriano.legato_api.dto.UserDTO.UserResponseDTO;
 import com.floriano.legato_api.model.User.User;
+import com.floriano.legato_api.model.User.AuxiliaryEntity.ExternalLinks;
 
 import java.util.stream.Collectors;
 
@@ -36,7 +37,13 @@ public class UserMapper {
         dto.setBio(user.getBio());
         dto.setObjective(user.getObjective());
         dto.setLocation(user.getLocation());
-        dto.setLinks(user.getLinks());
+        ExternalLinks links = new ExternalLinks();
+        links.setInstagram(user.getInstagram());
+        links.setSoundcloud(user.getSoundcloud());
+        links.setSpotify(user.getSpotify());
+        links.setYoutube(user.getYoutube());
+        links.setWebsite(user.getWebsite());
+        dto.setLinks(links);
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
 
@@ -63,6 +70,15 @@ public class UserMapper {
                         .map(User::getId)
                         .collect(Collectors.toSet())
         );
+        
+            if (!user.isActive()) {
+                    dto.setDisplayName("Usuário Excluído");
+                    dto.setProfilePicture("url_de_avatar_padrao_cinza");
+                    dto.setUsername("removido");
+                } else {
+                    dto.setDisplayName(user.getDisplayName());
+                    dto.setProfilePicture(user.getProfilePicture());
+                }
 
         return dto;
     }
