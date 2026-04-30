@@ -50,4 +50,8 @@ public class ChatMessageService {
 
         return savedMessage;
     }
+
+    public ChatMessage findById(Long id) {
+        return chatMessageRepository.findById(id).orElse(null);
+    }
 }

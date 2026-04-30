@@ -29,6 +29,9 @@ public class ChatMessageDTO {
     // --- CAMPOS DE MÍDIA ---
     private TypeMedia typeMedia;
     private String mediaUrl;
+    private Long repliedMessageId;
+    private String repliedMessageContent;
+    private String repliedMessageSenderName;
 
     public static ChatMessageDTO from(ChatMessage message) {
         return ChatMessageDTO.builder()
@@ -41,6 +44,10 @@ public class ChatMessageDTO {
                 .readAt(message.getReadAt())
                 .typeMedia(message.getTypeMedia() != null ? message.getTypeMedia() : TypeMedia.NONE)
                 .mediaUrl(message.getMediaUrl())
+                .repliedMessageId(message.getRepliedMessage() != null ? message.getRepliedMessage().getId() : null)
+                .repliedMessageContent(message.getRepliedMessage() != null ? message.getRepliedMessage().getContent() : null)
+                .repliedMessageSenderName(message.getRepliedMessage() != null && message.getRepliedMessage().getSender() != null 
+                        ? message.getRepliedMessage().getSender().getUsername() : null)
                 .build();
     }
 }

@@ -43,9 +43,12 @@ public class User {
     private String profilePicture;
     private String profileBanner;
 
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    private boolean isActive = true;
+
     @Column(columnDefinition = "bytea", nullable = true)
     @ColumnTransformer(
-        read = "pgp_sym_decrypt(bio::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        read = "pgp_sym_decrypt(CAST(bio AS bytea), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
         write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
     )
     private String bio;
@@ -142,16 +145,40 @@ public class User {
 
     // LINKS EXTERNOS
 
-    @Embedded
-    private ExternalLinks links;
+    @Column(columnDefinition = "bytea") 
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(spotify::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
+    private String spotify;
 
-    public User(String email, String password, UserRole role, String username, String displayName) {
-        this.email = email;
-        this.password = password;
-        this.role = role;
-        this.username = username;
-        this.displayName = displayName;
-    }
+    @Column(columnDefinition = "bytea")
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(soundcloud::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
+    private String soundcloud;
+
+    @Column(columnDefinition = "bytea")
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(instagram::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
+    private String instagram;
+
+    @Column(columnDefinition = "bytea")
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(youtube::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
+    private String youtube;
+
+    @Column(columnDefinition = "bytea")
+    @ColumnTransformer(
+        read = "pgp_sym_decrypt(website::bytea, '" + SecurityConstants.DB_ENCRYPTION_KEY + "')",
+        write = "pgp_sym_encrypt(CAST(? AS text), '" + SecurityConstants.DB_ENCRYPTION_KEY + "')"
+    )
+    private String website;
 
     // INTEGRAÇÃO SPOTIFY
     @Column(name = "spotify_access_token", columnDefinition = "text")
@@ -234,6 +261,14 @@ public class User {
         if (user == null || user.equals(this)) return;
         this.connections.remove(user);
         user.getConnections().remove(this);
+    }
+
+    public User(String email, String password, UserRole role, String username, String displayName) {
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.username = username;
+        this.displayName = displayName;
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {

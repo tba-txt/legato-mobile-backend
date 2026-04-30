@@ -14,6 +14,7 @@ import com.floriano.legato_api.model.User.enums.InstrumentList;
 import com.floriano.legato_api.model.User.enums.Genre;
 import com.floriano.legato_api.model.User.enums.UserSex;
 import com.floriano.legato_api.model.User.AuxiliaryEntity.ExternalLinks;
+import com.floriano.legato_api.payload.ApiResponse;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -22,13 +23,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.util.regex.Pattern;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.http.HttpStatus;
+
+import com.floriano.legato_api.payload.ApiResponse;
+import com.floriano.legato_api.payload.ResponseFactory;
+import com.floriano.legato_api.mapper.user.UserMapper;
 
 @RestController
 @RequestMapping("auth")
@@ -49,22 +62,72 @@ public class AuthenticationController {
 
     private final RecaptchaService recaptchaService;
 
+    private final PasswordEncoder passwordEncoder;
+
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AutheticationDto data) {
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
-        boolean emailsExists = userRepository.existsByEmail(data.email());
-        if (!emailsExists) throw new IllegalArgumentException("Email não encontrado!");
-        var auth = authenticationManager.authenticate(usernamePassword);
+        
+        try {
+            // Tenta autenticar
+            var auth = authenticationManager.authenticate(usernamePassword);
 
-        UserPrincipal userPrincipal = (UserPrincipal) auth.getPrincipal();
-        User user = userPrincipal.getUser();
+            // Se passou, gera o token normalmente
+            UserPrincipal userPrincipal = (UserPrincipal) auth.getPrincipal();
+            User user = userPrincipal.getUser();
 
-        var token = tokenService.generateToken(user);
+            var token = tokenService.generateToken(user);
+            var userDTO = UserMapper.toDTO(user);
+            var response = new AuthResponseDTO(token, userDTO);
+
+            return ResponseFactory.ok("Login realizado com sucesso", response);
+
+        } catch (DisabledException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(false, "Conta desativada. Deseja reativar sua conta?", null));
+            
+        } catch (InternalAuthenticationServiceException e) {
+            if (e.getCause() instanceof DisabledException || e.getMessage().contains("desativada")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false, "Conta desativada. Deseja reativar sua conta?", null));
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
+            
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
+        }
+    }
+
+    @PostMapping("/reactivate")
+    public ResponseEntity<ApiResponse<AuthResponseDTO>> reactivateAccount(@RequestBody AutheticationDto authDto) {
+        
+        // 1. Busca o usuário ignorando o fato de estar inativo
+        User user = userRepository.findByEmail(authDto.email())
+                .orElseThrow(() -> new RuntimeException("Credenciais inválidas."));
+
+        // 2. Verifica se a conta realmente está inativa
+        if (user.isActive()) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Sua conta já está ativa. Faça login normalmente.", null));
+        }
+
+        // 3. Valida a senha na mão (já que o Spring Security barrou o fluxo normal)
+        if (!passwordEncoder.matches(authDto.password(), user.getPassword())) {
+            throw new RuntimeException("Credenciais inválidas.");
+        }
+
+        // 4. Reativa a conta!
+        user.setActive(true);
+        userRepository.save(user);
+
+        // 5. Gera o token e o DTO para devolver exatamente como no Login normal
+        String token = tokenService.generateToken(user);
         var userDTO = UserMapper.toDTO(user);
         var response = new AuthResponseDTO(token, userDTO);
 
-        return ResponseFactory.ok("Login realizado com sucesso", response);
+        return ResponseFactory.ok("Conta reativada com sucesso!", response);
     }
 
     @PostMapping("/register")
@@ -121,15 +184,12 @@ public class AuthenticationController {
             }
 
             if (data.links() != null) {
-                ExternalLinks externalLinks = new ExternalLinks();
-                externalLinks.setSpotify(data.links().getSpotify());
-                externalLinks.setSoundcloud(data.links().getSoundcloud());
-                externalLinks.setInstagram(data.links().getInstagram());
-                externalLinks.setYoutube(data.links().getYoutube());
-                externalLinks.setWebsite(data.links().getWebsite());
-                
-                newUser.setLinks(externalLinks);
-            }
+                        newUser.setSpotify(data.links().getSpotify());
+                        newUser.setSoundcloud(data.links().getSoundcloud());
+                        newUser.setInstagram(data.links().getInstagram());
+                        newUser.setYoutube(data.links().getYoutube());
+                        newUser.setWebsite(data.links().getWebsite());
+                    }
             // -----------------------------------------------------
             
             this.userRepository.save(newUser);

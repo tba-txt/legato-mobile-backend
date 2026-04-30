@@ -2,6 +2,7 @@ package com.floriano.legato_api.model.User.enums;
 
 public enum Genre {
     ROCK("Rock"),
+    RAP("Rap"),
     MPB("MPB"),
     SERTANEJO("Sertanejo"),
     FUNK("Funk"),

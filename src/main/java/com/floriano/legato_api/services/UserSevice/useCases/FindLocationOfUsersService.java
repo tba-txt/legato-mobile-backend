@@ -25,12 +25,15 @@ public class FindLocationOfUsersService {
         double originLat = origin.getLocation().getLatitude();
         double originLon = origin.getLocation().getLongitude();
 
+        // 1. Busca os usuários e já filtra quem não deve aparecer
         List<User> users = listAllUsersService.getRawUsers().stream()
-                .filter(u -> !u.getId().equals(userId))
-                .filter(u -> !origin.getBlockedUsers().contains(u))
+                .filter(u -> !u.getId().equals(userId)) 
+                .filter(u -> !origin.getBlockedUsers().contains(u)) 
+                .filter(u -> !u.getBlockedUsers().contains(origin)) 
                 .filter(u -> u.getLocation() != null)
                 .toList();
 
+        // 2. Calcula a distância matemática e retorna os mais próximos
         return users.stream()
                 .map(u -> {
                     double dist = haversine(
@@ -62,5 +65,4 @@ public class FindLocationOfUsersService {
 
         return R * c; // distância em km
     }
-
 }
