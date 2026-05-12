@@ -122,10 +122,6 @@ public class AuthenticationController {
 
             // SIMULAÇÃO DE ENVIO DE E-MAIL E LOG NO CONSOLE PARA TESTES RÁPIDOS
             String link = "http://localhost:8081/auth/verify-email?token=" + verifyToken;
-            System.out.println("=================================================");
-            System.out.println("EMAIL DE CONFIRMAÇÃO PARA: " + newUser.getEmail());
-            System.out.println("LINK: " + link);
-            System.out.println("=================================================");
             enviarEmail(newUser.getEmail(), "Confirme sua conta no Legato", "Clique aqui: " + link);
             
             return ResponseFactory.ok("Usuário cadastrado! Verifique seu console/e-mail para confirmar a conta antes de logar.", null);
@@ -160,12 +156,8 @@ public class AuthenticationController {
             userRepository.save(user);
 
             // AGORA O LINK É DINÂMICO
-            String link = baseUrl + "/auth/reset-password?token=" + resetToken + "&newPassword=SUA_NOVA_SENHA_AQUI";
+            String link = baseUrl + "/auth/reset-password?token=" + resetToken;
             
-            System.out.println("=================================================");
-            System.out.println("EMAIL DE RECUPERAÇÃO PARA: " + email);
-            System.out.println("LINK GERADO: " + link);
-            System.out.println("=================================================");
             enviarEmail(email, "Recuperação de Senha Legato", "Acesse este link para resetar sua senha: " + link);
         }
         return ResponseFactory.ok("Se o e-mail existir, as instruções foram enviadas.", null);
