@@ -35,6 +35,19 @@ public class User {
 
     private String email;
     private String password;
+
+    @Column(name = "is_email_verified", columnDefinition = "boolean default false")
+    private boolean isEmailVerified = false;
+
+    @Column(name = "email_verification_token")
+    private String emailVerificationToken;
+
+    @Column(name = "password_reset_token")
+    private String passwordResetToken;
+
+    @Column(name = "last_password_change")
+    private LocalDateTime lastPasswordChange = LocalDateTime.now();
+
     private LocalDate birthDate;
 
     private String username;
