@@ -178,7 +178,7 @@ public class UserController {
         return ResponseFactory.ok("Localização atualizada com sucesso em tempo real!");
     }
 
-    @Operation(summary = "Update user", description = "Updates an existing user by ID", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Update user", description =  "Updates an existing user by ID", security = @SecurityRequirement(name = "bearerAuth"))
     @PutMapping
     public ResponseEntity<ApiResponse<UserResponseDTO>> updateUser(@AuthenticationPrincipal UserPrincipal userPrincipal,  @RequestBody UserUpdateDTO dto ) {
         Long id = userPrincipal.getUser().getId();
