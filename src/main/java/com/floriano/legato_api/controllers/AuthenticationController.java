@@ -13,15 +13,21 @@ import com.floriano.legato_api.services.AuthorizationService.RecaptchaService;
 import com.floriano.legato_api.model.User.enums.InstrumentList;
 import com.floriano.legato_api.model.User.enums.Genre;
 import com.floriano.legato_api.model.User.enums.UserSex;
-import com.floriano.legato_api.model.User.AuxiliaryEntity.ExternalLinks;
 import com.floriano.legato_api.payload.ApiResponse;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -29,19 +35,7 @@ import org.springframework.security.authentication.InternalAuthenticationService
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.regex.Pattern;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.http.HttpStatus;
-
-import com.floriano.legato_api.payload.ApiResponse;
-import com.floriano.legato_api.payload.ResponseFactory;
-import com.floriano.legato_api.mapper.user.UserMapper;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("auth")
@@ -49,162 +43,150 @@ import com.floriano.legato_api.mapper.user.UserMapper;
 @Tag(name = "Auth")
 public class AuthenticationController {
 
-    // Regex prontas para validacoes de cadastro.
-    // Mantidas aqui para facilitar ativacao futura sem alterar regra no frontend agora.
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
-    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*[^\\w\\s]).{8,}$");
-
     private final AuthenticationManager authenticationManager;
-
     private final TokenService tokenService;
-
     private final UserRepository userRepository;
-
     private final RecaptchaService recaptchaService;
-
     private final PasswordEncoder passwordEncoder;
-
+    private final JavaMailSender mailSender; // Injetando o disparador de e-mails
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AutheticationDto data) {
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
-        
         try {
-            // Tenta autenticar
             var auth = authenticationManager.authenticate(usernamePassword);
-
-            // Se passou, gera o token normalmente
             UserPrincipal userPrincipal = (UserPrincipal) auth.getPrincipal();
             User user = userPrincipal.getUser();
+
+            // REGRA DE SEGURANÇA 1: E-mail não verificado
+            if (!user.isEmailVerified()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false, "Por favor, verifique seu e-mail antes de fazer login.", null));
+            }
+
+            // REGRA DE SEGURANÇA 2: Senha expirada (mais de 90 dias)
+            if (user.getLastPasswordChange() != null && user.getLastPasswordChange().plusDays(90).isBefore(LocalDateTime.now())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false, "Sua senha expirou por segurança (90 dias). Use a opção 'Esqueci a senha' para atualizá-la.", null));
+            }
 
             var token = tokenService.generateToken(user);
             var userDTO = UserMapper.toDTO(user);
             var response = new AuthResponseDTO(token, userDTO);
-
             return ResponseFactory.ok("Login realizado com sucesso", response);
 
-        } catch (DisabledException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponse<>(false, "Conta desativada. Deseja reativar sua conta?", null));
-            
-        } catch (InternalAuthenticationServiceException e) {
-            if (e.getCause() instanceof DisabledException || e.getMessage().contains("desativada")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(new ApiResponse<>(false, "Conta desativada. Deseja reativar sua conta?", null));
-            }
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
-            
+        } catch (DisabledException | InternalAuthenticationServiceException e) {
+             return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                     .body(new ApiResponse<>(false, "Conta desativada ou com problemas. Contate o suporte.", null));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponse<>(false, "Email ou senha incorretos.", null));
         }
     }
 
-    @PostMapping("/reactivate")
-    public ResponseEntity<ApiResponse<AuthResponseDTO>> reactivateAccount(@RequestBody AutheticationDto authDto) {
-        
-        // 1. Busca o usuário ignorando o fato de estar inativo
-        User user = userRepository.findByEmail(authDto.email())
-                .orElseThrow(() -> new RuntimeException("Credenciais inválidas."));
-
-        // 2. Verifica se a conta realmente está inativa
-        if (user.isActive()) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Sua conta já está ativa. Faça login normalmente.", null));
-        }
-
-        // 3. Valida a senha na mão (já que o Spring Security barrou o fluxo normal)
-        if (!passwordEncoder.matches(authDto.password(), user.getPassword())) {
-            throw new RuntimeException("Credenciais inválidas.");
-        }
-
-        // 4. Reativa a conta!
-        user.setActive(true);
-        userRepository.save(user);
-
-        // 5. Gera o token e o DTO para devolver exatamente como no Login normal
-        String token = tokenService.generateToken(user);
-        var userDTO = UserMapper.toDTO(user);
-        var response = new AuthResponseDTO(token, userDTO);
-
-        return ResponseFactory.ok("Conta reativada com sucesso!", response);
-    }
-
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterDto data) {
         try {
-            boolean isHuman = recaptchaService.validateToken(data.recaptchaToken());
-            
-           /* if (!isHuman) {
-                return ResponseFactory.forbidden("Falha na validação do reCAPTCHA. Você é um robô?");
-            } */ // comentado para facilitar os testes
-
             if (this.userRepository.findByEmail(data.email()).isPresent()) {
                 return ResponseFactory.badRequest("Email already exists");
             }
-
-            if (data.birthDate() == null) {
-                return ResponseFactory.badRequest("A data de nascimento é obrigatória.");
+            if (data.birthDate() == null || Period.between(data.birthDate(), LocalDate.now()).getYears() < 18) {
+                return ResponseFactory.badRequest("Você precisa ter pelo menos 18 anos.");
             }
 
-            int age = Period.between(data.birthDate(), LocalDate.now()).getYears();
-
-            if (age < 18) {
-                return ResponseFactory.badRequest("Você precisa ter pelo menos 18 anos para se cadastrar no Legato.");
-            }
-
-            String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-            
+            String encryptedPassword = passwordEncoder.encode(data.password());
             User newUser = new User(data.email(), encryptedPassword, data.role(), data.username(), data.displayName());
             newUser.setBirthDate(data.birthDate());
-
-            // --- MAPEAMENTO DOS NOVOS CAMPOS DO PERFIL INICIAL ---
             newUser.setBio(data.bio());
             newUser.setObjective(data.objective());
-
-            if (data.sex() != null && !data.sex().isBlank()) {
-                newUser.setSex(UserSex.valueOf(data.sex().toUpperCase()));
-            }
-
-            if (data.instruments() != null && !data.instruments().isEmpty()) {
-                // Tipagem explícita (String i) ajuda a IDE caso o import falhe no futuro, mas no Java 22 é redundante se o import estiver correto.
-                newUser.setInstruments(
-                    data.instruments().stream()
-                        .map((String i) -> InstrumentList.valueOf(i.toUpperCase()))
-                        .toList()
-                );
-            }
-
-            if (data.genres() != null && !data.genres().isEmpty()) {
-                newUser.setGenres(
-                    data.genres().stream()
-                        .map((String g) -> Genre.valueOf(g.toUpperCase()))
-                        .toList()
-                );
-            }
-
-            if (data.links() != null) {
-                        newUser.setSpotify(data.links().getSpotify());
-                        newUser.setSoundcloud(data.links().getSoundcloud());
-                        newUser.setInstagram(data.links().getInstagram());
-                        newUser.setYoutube(data.links().getYoutube());
-                        newUser.setWebsite(data.links().getWebsite());
-                    }
-            // -----------------------------------------------------
             
+            if (data.sex() != null && !data.sex().isBlank()) newUser.setSex(UserSex.valueOf(data.sex().toUpperCase()));
+            if (data.instruments() != null && !data.instruments().isEmpty()) {
+                newUser.setInstruments(data.instruments().stream().map(i -> InstrumentList.valueOf(i.toUpperCase())).toList());
+            }
+            if (data.genres() != null && !data.genres().isEmpty()) {
+                newUser.setGenres(data.genres().stream().map(g -> Genre.valueOf(g.toUpperCase())).toList());
+            }
+            if (data.links() != null) {
+                newUser.setSpotify(data.links().getSpotify());
+                newUser.setSoundcloud(data.links().getSoundcloud());
+                newUser.setInstagram(data.links().getInstagram());
+                newUser.setYoutube(data.links().getYoutube());
+                newUser.setWebsite(data.links().getWebsite());
+            }
+
+            // GERA TOKEN DE VERIFICAÇÃO DE EMAIL
+            String verifyToken = UUID.randomUUID().toString();
+            newUser.setEmailVerificationToken(verifyToken);
             this.userRepository.save(newUser);
 
-            var token = tokenService.generateToken(newUser);
-            var userDTO = UserMapper.toDTO(newUser);
-            var response = new AuthResponseDTO(token, userDTO);
+            // SIMULAÇÃO DE ENVIO DE E-MAIL E LOG NO CONSOLE PARA TESTES RÁPIDOS
+            String link = "http://localhost:8081/auth/verify-email?token=" + verifyToken;
+            enviarEmail(newUser.getEmail(), "Confirme sua conta no Legato", "Clique aqui: " + link);
+            
+            return ResponseFactory.ok("Usuário cadastrado! Verifique seu console/e-mail para confirmar a conta antes de logar.", null);
 
-            return ResponseFactory.ok("Usuário cadastrado com sucesso!", response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseFactory.badRequest("Dados de perfil inválidos: verifique os valores de sexo, instrumentos ou gêneros. Lembre-se de enviar exatamente como no Enum (ex: 'GUITARRA', 'ROCK'). Detalhe: " + e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseFactory.badRequest("Error: " + e.getMessage());
+        }
+    }
+
+    // --- NOVAS ROTAS DE SEGURANÇA EXIGIDAS ---
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
+        User user = userRepository.findByEmailVerificationToken(token)
+                .orElseThrow(() -> new RuntimeException("Token inválido ou expirado."));
+        
+        user.setEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        userRepository.save(user);
+        return ResponseFactory.ok("E-mail verificado com sucesso! Você já pode fazer login.", null);
+    }
+
+    @Value("${app.base-url}")
+    private String baseUrl;
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestParam String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user != null) {
+            String resetToken = UUID.randomUUID().toString();
+            user.setPasswordResetToken(resetToken);
+            userRepository.save(user);
+
+            // AGORA O LINK É DINÂMICO
+            String link = baseUrl + "/auth/reset-password?token=" + resetToken;
+            
+            enviarEmail(email, "Recuperação de Senha Legato", "Acesse este link para resetar sua senha: " + link);
+        }
+        return ResponseFactory.ok("Se o e-mail existir, as instruções foram enviadas.", null);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
+        User user = userRepository.findByPasswordResetToken(token)
+                .orElseThrow(() -> new RuntimeException("Token de recuperação inválido."));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordResetToken(null);
+        user.setLastPasswordChange(LocalDateTime.now()); // Zera o contador de 90 dias
+        userRepository.save(user);
+
+        return ResponseFactory.ok("Senha alterada com sucesso! Você já pode fazer login.", null);
+    }
+
+    // Método auxiliar para disparar e-mails de verdade depois (descomentar quando configurar o SMTP)
+    private void enviarEmail(String para, String assunto, String texto) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("legatoapi@gmail.com");
+            message.setTo(para);
+            message.setSubject(assunto);
+            message.setText(texto);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Erro ao enviar email: " + e.getMessage());
         }
     }
 }
