@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class ChatMessageDTO {
     private Long id;
     private String content;
+    private Long chatId;
 
     @JsonFormat(pattern = "dd/MM/yyyy HH:mm")
     private LocalDateTime timestamp;
@@ -37,6 +38,7 @@ public class ChatMessageDTO {
         return ChatMessageDTO.builder()
                 .id(message.getId())
                 .content(message.getContent())
+                .chatId(message.getChat() != null ? message.getChat().getId() : null)
                 .timestamp(message.getTimestamp())
                 .senderName(message.getSender() != null ? message.getSender().getUsername() : "Desconhecido")
                 .senderEmail(message.getSender() != null ? message.getSender().getEmail() : "?")
