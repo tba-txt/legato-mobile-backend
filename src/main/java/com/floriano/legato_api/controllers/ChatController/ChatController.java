@@ -70,8 +70,14 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
     public void sendPrivateMessage(@Payload ChatMessageRequestDTO dto,
                                    SimpMessageHeaderAccessor headerAccessor,
                                    Principal principal) {
-        // AGORA SIM! Se bater aqui, o log vai gritar no Render:
+        
         logger.info("MENSAGEM RECEBIDA VIA WEBSOCKET! DTO: {}", dto);
+
+        // TRAVA DE SEGURANÇA AQUI (Antes de bater no banco!)
+        if (dto.receiverId() == null) {
+            logger.error("❌ ERRO FATAL: O receiverId chegou NULO do Front-end! Verifique o JSON.");
+            return; // Interrompe para não quebrar a API
+        }
 
         try {
             String fromEmail = principal.getName();
@@ -79,14 +85,8 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
             User receiver = userService.findById(dto.receiverId());
 
             if (sender == null || receiver == null) {
-                logger.error("Remetente ({}) ou destinatário (ID: {}) inválido.", fromEmail, dto.receiverId());
+                logger.error("Remetente ou destinatário não encontrado no banco.");
                 return;
-            }
-
-            // Regra de bloqueio...
-            if (sender.getBlockedUsers().contains(receiver) || receiver.getBlockedUsers().contains(sender)) {
-                logger.warn("Bloqueio ativo entre {} e {}", sender.getId(), receiver.getId());
-                return; 
             }
 
             Chat chat = chatService.getOrCreateChatBetween(sender, receiver);
