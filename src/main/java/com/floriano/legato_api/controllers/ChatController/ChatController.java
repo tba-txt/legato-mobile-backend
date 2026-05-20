@@ -53,7 +53,7 @@ public class ChatController {
     private final UserService userService;
     private final CloudinaryService cloudinaryService;
 
-public ChatController(SimpMessagingTemplate messagingTemplate,
+    public ChatController(SimpMessagingTemplate messagingTemplate,
                           ChatService chatService,
                           ChatMessageService chatMessageService,
                           UserService userService,
@@ -71,10 +71,8 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                                    SimpMessageHeaderAccessor headerAccessor,
                                    Principal principal) {
         
-        // 1. O log agora vai mostrar exatamente o JSON parseado de forma limpa
         logger.info("MENSAGEM RECEBIDA VIA WEBSOCKET! DTO: {}", dto);
 
-        // 2. CRITICAL: Validação preventiva antes de qualquer consulta ao banco de dados
         if (dto.receiverId() == null) {
             logger.error("❌ ERRO FATAL: O receiverId chegou NULO do Front-end! Ignorando processamento.");
             return; 
@@ -90,7 +88,6 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                 return;
             }
 
-            // Regra de bloqueio
             if (sender.getBlockedUsers().contains(receiver) || receiver.getBlockedUsers().contains(sender)) {
                 logger.warn("Bloqueio ativo entre {} e {}", sender.getId(), receiver.getId());
                 return; 
@@ -98,7 +95,6 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
 
             Chat chat = chatService.getOrCreateChatBetween(sender, receiver);
 
-            // Monta a Entidade manualmente
             ChatMessage message = new ChatMessage();
             message.setChat(chat);
             message.setSender(sender);
@@ -118,18 +114,9 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
 
             logger.info("SUCESSO: Mensagem salva no chat {}: {}", chat.getId(), saved.getContent());
 
-            // 3. O PULO DO GATO PARA EVITAR O RELOAD:
-            // Envia o DTO em tempo real para quem está RECEBENDO a mensagem
-            messagingTemplate.convertAndSendToUser(
-                    receiver.getEmail(),
-                    "/queue/messages",
-                    ChatMessageDTO.from(saved)
-            );
-
-            // Envia o DTO em tempo real para quem está ENVIANDO a mensagem (confirmação visual instantânea)
-            messagingTemplate.convertAndSendToUser(
-                    sender.getEmail(),
-                    "/queue/messages",
+            // 🚀 SOLUÇÃO APLICADA: Envia para a Sala do Chat (Tópico). Ambos recebem na hora.
+            messagingTemplate.convertAndSend(
+                    "/topic/chats/" + chat.getId() + "/messages",
                     ChatMessageDTO.from(saved)
             );
 
@@ -138,13 +125,10 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
         }
     }
 
-    // --- AQUI ESTÁ O CÓDIGO DO DIGITANDO ---
     @MessageMapping("/chat/{chatId}/typing")
     public void processTypingStatus(@DestinationVariable Long chatId, @Payload TypingDTO typingDTO) {
-        // Envia o status de digitando para quem estiver inscrito no tópico deste chat
         messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/typing", typingDTO);
     }
-    // ---------------------------------------
 
     @GetMapping
     public ResponseEntity<List<ChatSummaryDTO>> getUserChats(Principal principal) {
@@ -158,7 +142,6 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
         List<Chat> userChats = chatService.getChatsByUser(currentUser);
 
         List<ChatSummaryDTO> chatSummaries = userChats.stream().map(chat -> {
-            
             User otherUser = chat.getParticipants().stream()
                     .filter(participant -> !participant.getId().equals(currentUser.getId()))
                     .findFirst()
@@ -200,7 +183,6 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
             }
 
             chatMessageService.markMessagesAsRead(chatId, currentUser.getId());
-            // -----------------------------------------------------------------------
 
             List<ChatMessageDTO> messages = chat.getMessages().stream()
                     .map(ChatMessageDTO::from)
@@ -219,11 +201,7 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
         User reader = userService.findByEmail(userEmail);
 
         if (reader != null) {
-            // 1. Atualiza no banco que o 'reader' leu as mensagens do 'chatId'
             chatMessageService.markMessagesAsRead(chatId, reader.getId());
-
-            // 2. Avisa o outro usuário (remetente original) que as mensagens foram lidas
-            // O Front-end deve escutar esse tópico para pintar os checks de azul
             messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/readReceipt", "READ");
         }
     }
@@ -244,7 +222,6 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                 return ResponseEntity.badRequest().body("Usuário ou Chat inválido.");
             }
 
-            // Trava de segurança: garantir que quem está mandando pertence ao chat
             boolean isParticipant = chat.getParticipants().stream()
                     .anyMatch(p -> p.getId().equals(sender.getId()));
             if (!isParticipant) {
@@ -256,15 +233,12 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                     .findFirst()
                     .orElse(null);
 
-            // 1. Upload para o Cloudinary organizando por pasta do chat
             String folderName = "legato/chats/chat_" + chatId; 
             String fileUrl = cloudinaryService.uploadFile(file, folderName);
 
-            // 2. Usa a sua classe utilitária que já existe para descobrir se é Áudio, Vídeo ou Imagem
             TypeMedia typeMedia = DetermineMediaType.determineMediaType(file);
             if (typeMedia == null) typeMedia = TypeMedia.NONE;
 
-            // 3. Monta e salva a mensagem
             ChatMessage message = ChatMessage.builder()
                     .chat(chat)
                     .sender(sender)
@@ -280,16 +254,12 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
             chat.addMessage(saved);
             chatService.saveChat(chat);
 
-            // 4. Avisa o destinatário via WebSocket em tempo real
-            if (receiver != null) {
-                messagingTemplate.convertAndSendToUser(
-                        receiver.getEmail(),
-                        "/queue/messages",
-                        ChatMessageDTO.from(saved)
-                );
-            }
+            // 🚀 SOLUÇÃO APLICADA AQUI TAMBÉM: Mídia enviada para a sala
+            messagingTemplate.convertAndSend(
+                    "/topic/chats/" + chat.getId() + "/messages",
+                    ChatMessageDTO.from(saved)
+            );
 
-            // Retorna a mensagem processada pro remetente desenhar na tela
             return ResponseEntity.ok(ChatMessageDTO.from(saved));
 
         } catch (Exception e) {
@@ -298,4 +268,3 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
         }
     }
 }
-
