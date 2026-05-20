@@ -71,12 +71,13 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
                                    SimpMessageHeaderAccessor headerAccessor,
                                    Principal principal) {
         
+        // 1. O log agora vai mostrar exatamente o JSON parseado de forma limpa
         logger.info("MENSAGEM RECEBIDA VIA WEBSOCKET! DTO: {}", dto);
 
-        // TRAVA DE SEGURANÇA AQUI (Antes de bater no banco!)
+        // 2. CRITICAL: Validação preventiva antes de qualquer consulta ao banco de dados
         if (dto.receiverId() == null) {
-            logger.error("❌ ERRO FATAL: O receiverId chegou NULO do Front-end! Verifique o JSON.");
-            return; // Interrompe para não quebrar a API
+            logger.error("❌ ERRO FATAL: O receiverId chegou NULO do Front-end! Ignorando processamento.");
+            return; 
         }
 
         try {
@@ -85,20 +86,26 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
             User receiver = userService.findById(dto.receiverId());
 
             if (sender == null || receiver == null) {
-                logger.error("Remetente ou destinatário não encontrado no banco.");
+                logger.error("Remetente ({}) ou destinatário (ID: {}) inválido.", fromEmail, dto.receiverId());
                 return;
+            }
+
+            // Regra de bloqueio
+            if (sender.getBlockedUsers().contains(receiver) || receiver.getBlockedUsers().contains(sender)) {
+                logger.warn("Bloqueio ativo entre {} e {}", sender.getId(), receiver.getId());
+                return; 
             }
 
             Chat chat = chatService.getOrCreateChatBetween(sender, receiver);
 
-            // Monta a Entidade manualmente com segurança
+            // Monta a Entidade manualmente
             ChatMessage message = new ChatMessage();
             message.setChat(chat);
             message.setSender(sender);
             message.setReceiver(receiver);
             message.setContent(dto.content());
             message.setTimestamp(LocalDateTime.now());
-            message.setStatus(MessageStatus.SENT); // Enum de status
+            message.setStatus(MessageStatus.SENT); 
 
             if (dto.repliedMessageId() != null) {
                 ChatMessage originalMessage = chatMessageService.findById(dto.repliedMessageId());
@@ -111,8 +118,17 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
 
             logger.info("SUCESSO: Mensagem salva no chat {}: {}", chat.getId(), saved.getContent());
 
+            // 3. O PULO DO GATO PARA EVITAR O RELOAD:
+            // Envia o DTO em tempo real para quem está RECEBENDO a mensagem
             messagingTemplate.convertAndSendToUser(
                     receiver.getEmail(),
+                    "/queue/messages",
+                    ChatMessageDTO.from(saved)
+            );
+
+            // Envia o DTO em tempo real para quem está ENVIANDO a mensagem (confirmação visual instantânea)
+            messagingTemplate.convertAndSendToUser(
+                    sender.getEmail(),
                     "/queue/messages",
                     ChatMessageDTO.from(saved)
             );
