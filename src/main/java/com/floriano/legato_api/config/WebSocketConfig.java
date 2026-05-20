@@ -43,7 +43,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // 1. ROTA PURA (Recomendada para o React Native do Victor e para o Postman)
         registry.addEndpoint("/ws-chat")
+                .addInterceptors(authHandshakeInterceptor)
+                .setHandshakeHandler(userHandshakeHandler)
+                .setAllowedOriginPatterns("*");
+
+        // 2. ROTA SOCKJS (Fallback padrão do Spring)
+        registry.addEndpoint("/ws-chat-sockjs")
                 .addInterceptors(authHandshakeInterceptor)
                 .setHandshakeHandler(userHandshakeHandler)
                 .setAllowedOriginPatterns("*")
