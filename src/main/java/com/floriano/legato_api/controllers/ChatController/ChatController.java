@@ -1,6 +1,7 @@
 package com.floriano.legato_api.controllers.ChatController;
 
 import com.floriano.legato_api.dto.ChatDTO.ChatMessageDTO;
+import com.floriano.legato_api.dto.ChatDTO.ChatMessageRequestDTO;
 import com.floriano.legato_api.dto.ChatDTO.ChatSummaryDTO;
 import com.floriano.legato_api.dto.ChatDTO.TypingDTO;
 import com.floriano.legato_api.model.Chat.Chat;
@@ -66,45 +67,49 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
 
     @Transactional
     @MessageMapping("/sendMessage")
-    public void sendPrivateMessage(ChatMessage message,
+    public void sendPrivateMessage(@Payload ChatMessageRequestDTO dto,
                                    SimpMessageHeaderAccessor headerAccessor,
                                    Principal principal) {
+        // AGORA SIM! Se bater aqui, o log vai gritar no Render:
+        logger.info("MENSAGEM RECEBIDA VIA WEBSOCKET! DTO: {}", dto);
+
         try {
             String fromEmail = principal.getName();
             User sender = userService.findByEmail(fromEmail);
-            User receiver = userService.findById(message.getReceiver().getId());
+            User receiver = userService.findById(dto.receiverId());
 
             if (sender == null || receiver == null) {
-                logger.error("Remetente ({}) ou destinatário inválido.", fromEmail);
+                logger.error("Remetente ({}) ou destinatário (ID: {}) inválido.", fromEmail, dto.receiverId());
                 return;
             }
 
-            boolean hasBlockedReceiver = sender.getBlockedUsers().contains(receiver);
-            boolean isBlockedByReceiver = receiver.getBlockedUsers().contains(sender);
-
-            if (hasBlockedReceiver || isBlockedByReceiver) {
-                logger.warn("Bloqueio ativo: Mensagem ignorada entre sender {} e receiver {}", sender.getId(), receiver.getId());
+            // Regra de bloqueio...
+            if (sender.getBlockedUsers().contains(receiver) || receiver.getBlockedUsers().contains(sender)) {
+                logger.warn("Bloqueio ativo entre {} e {}", sender.getId(), receiver.getId());
                 return; 
             }
 
             Chat chat = chatService.getOrCreateChatBetween(sender, receiver);
 
+            // Monta a Entidade manualmente com segurança
+            ChatMessage message = new ChatMessage();
             message.setChat(chat);
             message.setSender(sender);
+            message.setReceiver(receiver);
+            message.setContent(dto.content());
             message.setTimestamp(LocalDateTime.now());
+            message.setStatus(MessageStatus.SENT); // Enum de status
 
-            if (message.getRepliedMessage() != null && message.getRepliedMessage().getId() != null) {
-                ChatMessage originalMessage = chatMessageService.findById(message.getRepliedMessage().getId());
+            if (dto.repliedMessageId() != null) {
+                ChatMessage originalMessage = chatMessageService.findById(dto.repliedMessageId());
                 message.setRepliedMessage(originalMessage);
-            } else {
-                message.setRepliedMessage(null);
             }
 
             ChatMessage saved = chatMessageService.saveMessage(message);
             chat.addMessage(saved);
             chatService.saveChat(chat);
 
-            logger.info("Mensagem salva no chat {}: {}", chat.getId(), saved.getContent());
+            logger.info("SUCESSO: Mensagem salva no chat {}: {}", chat.getId(), saved.getContent());
 
             messagingTemplate.convertAndSendToUser(
                     receiver.getEmail(),
@@ -113,7 +118,7 @@ public ChatController(SimpMessagingTemplate messagingTemplate,
             );
 
         } catch (Exception e) {
-            logger.error("Erro ao enviar mensagem: {}", e.getMessage(), e);
+            logger.error("Erro fatal ao processar mensagem do WS: {}", e.getMessage(), e);
         }
     }
 
