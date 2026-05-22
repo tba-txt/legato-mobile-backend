@@ -1,6 +1,7 @@
 package com.floriano.legato_api.services.SwipeService;
 
 import com.floriano.legato_api.dto.NotificationDTO.NotificationRequestDTO;
+import com.floriano.legato_api.dto.SwipeDTO.SwipeHistoryResponseDTO;
 import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.Notification.enums.NotificationTargetType;
 import com.floriano.legato_api.model.Notification.enums.NotificationType;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ProcessSwipeService {
@@ -24,15 +27,33 @@ public class ProcessSwipeService {
     private final ChatService chatService;
     private final NotificationService notificationService;
 
+    public List<SwipeHistoryResponseDTO> getSwipeHistory(Long swiperId) {
+        List<Swipe> swipes = swipeRepository.findBySwiperIdOrderByCreatedAtDesc(swiperId);
+
+        return swipes.stream()
+            .map(swipe -> {
+                User musician = swipe.getSwiped();
+                return SwipeHistoryResponseDTO.builder()
+                    .id(musician.getId())
+                    .displayName(musician.getDisplayName() != null ? musician.getDisplayName() : musician.getUsername())
+                    .profilePicture(musician.getProfilePicture())
+                    .instruments(musician.getInstruments())
+                    .genres(musician.getGenres())
+                    .bio(musician.getBio())
+                    .photosCard(musician.getPhotosCard())
+                    .direction(swipe.isLike() ? "like" : "dislike")
+                    .createdAt(swipe.getCreatedAt())
+                    .build();
+            })
+            .toList();
+    }
+
     @Transactional
     public Chat execute(Long swiperId, Long swipedId, boolean isLike) {
         User swiper = userService.findById(swiperId);
         User swiped = userService.findById(swipedId);
 
-        // BLINDAGEM 3: Idempotência. Se o front end mandar 2 likes seguidos, 
-        // o segundo vai bater aqui e a gente ignora ele antes de tentar salvar.
         if (swipeRepository.existsBySwiperAndSwiped(swiper, swiped)) {
-            // Pode retornar null. O front não deve fazer nada se for um duplicate.
             return null; 
         }
 
@@ -44,13 +65,11 @@ public class ProcessSwipeService {
 
         if (!isLike) return null;
 
-        // Agora usando o nosso novo método exists... que é seguro contra duplicidades.
         boolean hasMatch = swipeRepository.existsBySwiperAndSwipedAndIsLikeTrue(swiped, swiper);
 
         if (hasMatch) {
             Chat chat = chatService.getOrCreateChatBetween(swiper, swiped);
 
-            // Notifica quem recebeu o like final
             NotificationRequestDTO toSwiped = new NotificationRequestDTO();
             toSwiped.setSenderId(swiperId);
             toSwiped.setRecipientId(swipedId);
@@ -60,7 +79,6 @@ public class ProcessSwipeService {
             toSwiped.setTargetType(NotificationTargetType.CHAT);
             toSwiped.setTargetId(chat.getId());
 
-            // Notifica quem deu o último like
             NotificationRequestDTO toSwiper = new NotificationRequestDTO();
             toSwiper.setSenderId(swipedId);
             toSwiper.setRecipientId(swiperId);
