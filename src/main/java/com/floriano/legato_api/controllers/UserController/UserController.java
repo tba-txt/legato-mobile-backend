@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.floriano.legato_api.services.SwipeService.ProcessSwipeService;
 import org.springframework.transaction.annotation.Transactional;
+import com.floriano.legato_api.dto.SwipeDTO.SwipeHistoryResponseDTO;
 
 import java.util.List;
 
@@ -412,6 +413,23 @@ public class UserController {
             @PathVariable int index
     ) {
         return ResponseEntity.ok(userService.removeCardImage(id, index));
+    }
+
+    @Operation(
+            summary = "Obter histórico de swipes do usuário logado",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/discovery/history")
+    public ResponseEntity<ApiResponse<List<SwipeHistoryResponseDTO>>> getSwipeHistory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        // Pega o ID do usuário logado através do Token/Principal
+        Long myId = userPrincipal.getUser().getId();
+
+        // Busca o histórico formatado pelo Stream do Service
+        List<SwipeHistoryResponseDTO> history = processSwipeService.getSwipeHistory(myId);
+
+        return ResponseFactory.ok("Histórico recuperado com sucesso", history);
     }
 
 
