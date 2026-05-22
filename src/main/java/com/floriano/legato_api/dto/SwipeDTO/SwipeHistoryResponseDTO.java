@@ -11,7 +11,7 @@ import java.util.List;
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SwipeHistoryEntryDTO {
+public class SwipeHistoryResponseDTO {
     private Long id;
     private String displayName;
     private String profilePicture;
