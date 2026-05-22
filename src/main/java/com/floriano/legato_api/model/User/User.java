@@ -22,6 +22,7 @@ import java.util.*;
 
 @Table(name = "users")
 @Entity(name = "users")
+@Data
 @Getter
 @Setter
 @NoArgsConstructor
