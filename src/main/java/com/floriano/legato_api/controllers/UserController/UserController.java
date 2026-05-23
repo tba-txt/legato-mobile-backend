@@ -432,7 +432,6 @@ public class UserController {
         return ResponseFactory.ok("Histórico recuperado com sucesso", history);
     }
 
-
     //CALCULO DE DISTÂNCIA ENTRE USUÁRIOS (Haversine) PARA SWIPE POR LOCALIZAÇÃO
 
     private double calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {
