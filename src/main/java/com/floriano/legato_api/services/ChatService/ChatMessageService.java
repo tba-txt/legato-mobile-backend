@@ -29,23 +29,34 @@ public class ChatMessageService {
         chatMessageRepository.markMessagesAsRead(chatId, receiverId, LocalDateTime.now());
     }
 
+    @Transactional
+    public void markAsDelivered(Long messageId) {
+        chatMessageRepository.markMessageAsDelivered(messageId);
+    }
+
+    @Transactional
     public ChatMessage saveMessage(ChatMessage message) {
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
         if (savedMessage.getSender() != null && savedMessage.getReceiver() != null) {
-            NotificationRequestDTO dto = new NotificationRequestDTO();
-            dto.setSenderId(savedMessage.getSender().getId());
-            dto.setRecipientId(savedMessage.getReceiver().getId());
-            dto.setMessage("@" + savedMessage.getSender().getUsername() + " enviou uma mensagem.");
-            dto.setType(NotificationType.MESSAGE_RECEIVED);
-            dto.setTargetType(NotificationTargetType.MESSAGE);
-            
-            Long targetId = (savedMessage.getChat() != null) ? savedMessage.getChat().getId() : savedMessage.getSender().getId();
-            dto.setTargetId(targetId); 
-            
-            dto.setCreatedAt(null);
+            try {
+                NotificationRequestDTO dto = new NotificationRequestDTO();
+                dto.setSenderId(savedMessage.getSender().getId());
+                dto.setRecipientId(savedMessage.getReceiver().getId());
+                dto.setMessage("@" + savedMessage.getSender().getUsername() + " enviou uma mensagem.");
+                dto.setType(NotificationType.MESSAGE_RECEIVED);
+                dto.setTargetType(NotificationTargetType.MESSAGE);
 
-            createNotificationService.execute(dto);
+                Long targetId = (savedMessage.getChat() != null) ? savedMessage.getChat().getId() : savedMessage.getSender().getId();
+                dto.setTargetId(targetId);
+
+                dto.setCreatedAt(null);
+
+                createNotificationService.execute(dto);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(ChatMessageService.class)
+                        .warn("Falha ao criar notificação de mensagem, mas mensagem foi salva: {}", e.getMessage());
+            }
         }
 
         return savedMessage;

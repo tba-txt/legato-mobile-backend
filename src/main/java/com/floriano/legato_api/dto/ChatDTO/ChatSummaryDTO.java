@@ -11,5 +11,7 @@ public record ChatSummaryDTO(
         String lastMessageContent,
 
         @JsonFormat(pattern = "dd/MM/yyyy HH:mm")
-        LocalDateTime lastMessageTimestamp
+        LocalDateTime lastMessageTimestamp,
+        Boolean isOnline,
+        LocalDateTime lastSeen
 ) {}

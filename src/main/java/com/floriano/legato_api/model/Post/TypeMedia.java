@@ -4,6 +4,7 @@ public enum TypeMedia {
     IMAGE,
     VIDEO,
     AUDIO,
+    FILE,
     NONE
 }
 

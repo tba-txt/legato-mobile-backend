@@ -19,6 +19,7 @@ public class ChatMessageDTO {
     @JsonFormat(pattern = "dd/MM/yyyy HH:mm")
     private LocalDateTime timestamp;
     
+    private Long senderId;
     private String senderName;
     private String senderEmail;
 
@@ -30,6 +31,7 @@ public class ChatMessageDTO {
     // --- CAMPOS DE MÍDIA ---
     private TypeMedia typeMedia;
     private String mediaUrl;
+    private String audioType;
     private Long repliedMessageId;
     private String repliedMessageContent;
     private String repliedMessageSenderName;
@@ -40,12 +42,14 @@ public class ChatMessageDTO {
                 .content(message.getContent())
                 .chatId(message.getChat() != null ? message.getChat().getId() : null)
                 .timestamp(message.getTimestamp())
+                .senderId(message.getSender() != null ? message.getSender().getId() : null)
                 .senderName(message.getSender() != null ? message.getSender().getUsername() : "Desconhecido")
                 .senderEmail(message.getSender() != null ? message.getSender().getEmail() : "?")
                 .status(message.getStatus() != null ? message.getStatus() : MessageStatus.SENT)
                 .readAt(message.getReadAt())
                 .typeMedia(message.getTypeMedia() != null ? message.getTypeMedia() : TypeMedia.NONE)
                 .mediaUrl(message.getMediaUrl())
+                .audioType(message.getAudioType())
                 .repliedMessageId(message.getRepliedMessage() != null ? message.getRepliedMessage().getId() : null)
                 .repliedMessageContent(message.getRepliedMessage() != null ? message.getRepliedMessage().getContent() : null)
                 .repliedMessageSenderName(message.getRepliedMessage() != null && message.getRepliedMessage().getSender() != null 

@@ -35,6 +35,11 @@ public class ChatService {
                 .orElseThrow(() -> new RuntimeException("Chat não encontrado"));
     }
 
+    public Chat getChatByIdWithParticipants(Long id) {
+        return chatRepository.findByIdWithParticipants(id)
+                .orElseThrow(() -> new RuntimeException("Chat não encontrado"));
+    }
+
     public Optional<Chat> findChatBetween(User user1, User user2) {
         return chatRepository.findChatBetweenUsers(user1.getId(), user2.getId());
     }

@@ -3,6 +3,7 @@ package com.floriano.legato_api.controllers.ChatController;
 import com.floriano.legato_api.dto.ChatDTO.ChatMessageDTO;
 import com.floriano.legato_api.dto.ChatDTO.ChatMessageRequestDTO;
 import com.floriano.legato_api.dto.ChatDTO.ChatSummaryDTO;
+import com.floriano.legato_api.dto.ChatDTO.MessageStatusUpdateDTO;
 import com.floriano.legato_api.dto.ChatDTO.TypingDTO;
 import com.floriano.legato_api.model.Chat.Chat;
 import com.floriano.legato_api.model.ChatMessage.ChatMessage;
@@ -33,10 +34,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -101,7 +106,9 @@ public class ChatController {
             message.setReceiver(receiver);
             message.setContent(dto.content());
             message.setTimestamp(LocalDateTime.now());
-            message.setStatus(MessageStatus.SENT); 
+            message.setStatus(MessageStatus.SENT);
+            message.setTypeMedia(dto.typeMedia() != null ? dto.typeMedia() : TypeMedia.NONE);
+            message.setMediaUrl(dto.mediaUrl());
 
             if (dto.repliedMessageId() != null) {
                 ChatMessage originalMessage = chatMessageService.findById(dto.repliedMessageId());
@@ -156,7 +163,9 @@ public class ChatController {
                     otherUser.getUsername(),
                     otherUser.getProfilePicture(),
                     lastMessage != null ? lastMessage.getContent() : "",
-                    lastMessage != null ? lastMessage.getTimestamp() : null
+                    lastMessage != null ? lastMessage.getTimestamp() : null,
+                    otherUser.getIsOnline(),
+                    otherUser.getLastSeen()
             );
         }).collect(Collectors.toList());
 
@@ -183,6 +192,7 @@ public class ChatController {
             }
 
             chatMessageService.markMessagesAsRead(chatId, currentUser.getId());
+            broadcastReadToSenders(chatId, currentUser.getId());
 
             List<ChatMessageDTO> messages = chat.getMessages().stream()
                     .map(ChatMessageDTO::from)
@@ -195,22 +205,61 @@ public class ChatController {
         }
     }
 
-    @MessageMapping("/chat/{chatId}/read")
-    public void processReadReceipt(@DestinationVariable Long chatId, Principal principal) {
-        String userEmail = principal.getName();
-        User reader = userService.findByEmail(userEmail);
+    @MessageMapping("/chat/{chatId}/message/{messageId}/delivered")
+    public void processDeliveredReceipt(@DestinationVariable Long chatId,
+                                        @DestinationVariable Long messageId,
+                                        Principal principal) {
+        chatMessageService.markAsDelivered(messageId);
 
-        if (reader != null) {
-            chatMessageService.markMessagesAsRead(chatId, reader.getId());
-            messagingTemplate.convertAndSend("/topic/chats/" + chatId + "/readReceipt", "READ");
+        ChatMessage message = chatMessageService.findById(messageId);
+        if (message != null && message.getSender() != null) {
+            messagingTemplate.convertAndSend(
+                    "/topic/users/" + message.getSender().getId() + "/messages/status",
+                    new MessageStatusUpdateDTO(chatId, messageId, MessageStatus.DELIVERED, LocalDateTime.now())
+            );
         }
     }
 
-    @Transactional
+    @MessageMapping("/chat/{chatId}/read")
+    public void processReadReceipt(@DestinationVariable Long chatId, Principal principal) {
+        if (principal == null) {
+            logger.warn("processReadReceipt: principal nulo para chatId {}", chatId);
+            return;
+        }
+        User reader = userService.findByEmail(principal.getName());
+        if (reader == null) {
+            logger.warn("processReadReceipt: usuário não encontrado para email {}", principal.getName());
+            return;
+        }
+
+        logger.info("processReadReceipt: marcando mensagens como lidas no chat {} pelo usuário {}", chatId, reader.getId());
+        chatMessageService.markMessagesAsRead(chatId, reader.getId());
+        broadcastReadToSenders(chatId, reader.getId());
+    }
+
+    private void broadcastReadToSenders(Long chatId, Long readerId) {
+        Chat chat = chatService.getChatByIdWithParticipants(chatId);
+        chat.getParticipants().stream()
+                .filter(p -> !p.getId().equals(readerId))
+                .map(User::getId)
+                .findFirst()
+                .ifPresentOrElse(
+                        senderId -> {
+                            logger.info("broadcastReadToSenders: enviando READ do chat {} para o usuário {}", chatId, senderId);
+                            messagingTemplate.convertAndSend(
+                                    "/topic/users/" + senderId + "/messages/status",
+                                    new MessageStatusUpdateDTO(chatId, null, MessageStatus.READ, LocalDateTime.now())
+                            );
+                        },
+                        () -> logger.warn("broadcastReadToSenders: nenhum outro participante encontrado no chat {}", chatId)
+                );
+    }
+
     @PostMapping(value = "/{chatId}/messages/media", consumes = "multipart/form-data")
     public ResponseEntity<?> uploadMediaMessage(
             @PathVariable Long chatId,
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "audioType", required = false) String audioType,
             Principal principal) {
         
         try {
@@ -239,13 +288,22 @@ public class ChatController {
             TypeMedia typeMedia = DetermineMediaType.determineMediaType(file);
             if (typeMedia == null) typeMedia = TypeMedia.NONE;
 
+            String content = switch (typeMedia) {
+                case AUDIO -> "audio_file".equals(audioType) ? "Arquivo de áudio" : "Mensagem de voz";
+                case IMAGE -> "Imagem";
+                case VIDEO -> "Vídeo";
+                case FILE  -> file.getOriginalFilename() != null ? file.getOriginalFilename() : "Arquivo";
+                default    -> "Arquivo de mídia";
+            };
+
             ChatMessage message = ChatMessage.builder()
                     .chat(chat)
                     .sender(sender)
                     .receiver(receiver)
                     .typeMedia(typeMedia)
                     .mediaUrl(fileUrl)
-                    .content(typeMedia == TypeMedia.AUDIO ? "Mensagem de voz" : "Arquivo de mídia")
+                    .audioType(typeMedia == TypeMedia.AUDIO ? audioType : null)
+                    .content(content)
                     .timestamp(LocalDateTime.now())
                     .status(MessageStatus.SENT)
                     .build();
@@ -265,6 +323,76 @@ public class ChatController {
         } catch (Exception e) {
             logger.error("Erro ao enviar mídia no chat: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body("Erro no upload: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{chatId}/messages/{messageId}/download-url")
+    public ResponseEntity<?> getDownloadUrl(
+            @PathVariable Long chatId,
+            @PathVariable Long messageId,
+            Principal principal) {
+        try {
+            User user = userService.findByEmail(principal.getName());
+            Chat chat = chatService.getChatById(chatId);
+
+            if (user == null || chat == null) return ResponseEntity.badRequest().build();
+
+            boolean isParticipant = chat.getParticipants().stream()
+                    .anyMatch(p -> p.getId().equals(user.getId()));
+            if (!isParticipant) return ResponseEntity.status(403).build();
+
+            ChatMessage message = chatMessageService.findById(messageId);
+            if (message == null || message.getMediaUrl() == null)
+                return ResponseEntity.notFound().build();
+
+            String signedUrl = cloudinaryService.generateSignedDownloadUrl(message.getMediaUrl());
+            return ResponseEntity.ok(Map.of("url", signedUrl));
+
+        } catch (Exception e) {
+            logger.error("Erro ao gerar URL de download: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Erro ao gerar URL de download");
+        }
+    }
+
+    @GetMapping("/{chatId}/messages/{messageId}/download")
+    public ResponseEntity<byte[]> downloadMedia(
+            @PathVariable Long chatId,
+            @PathVariable Long messageId,
+            Principal principal) {
+        try {
+            User user = userService.findByEmail(principal.getName());
+            Chat chat = chatService.getChatById(chatId);
+
+            if (user == null || chat == null) return ResponseEntity.badRequest().build();
+
+            boolean isParticipant = chat.getParticipants().stream()
+                    .anyMatch(p -> p.getId().equals(user.getId()));
+            if (!isParticipant) return ResponseEntity.status(403).build();
+
+            ChatMessage message = chatMessageService.findById(messageId);
+            if (message == null || message.getMediaUrl() == null)
+                return ResponseEntity.notFound().build();
+
+            byte[] fileBytes;
+            if (message.getTypeMedia() == TypeMedia.FILE) {
+                fileBytes = cloudinaryService.downloadFileDirectly(message.getMediaUrl());
+            } else {
+                fileBytes = cloudinaryService.downloadFileBytes(message.getMediaUrl());
+            }
+
+            String mediaUrl = message.getMediaUrl();
+            String filename = mediaUrl != null
+                    ? mediaUrl.substring(mediaUrl.lastIndexOf('/') + 1)
+                    : "arquivo";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+
+            return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            logger.error("Erro ao fazer proxy de download: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 }
