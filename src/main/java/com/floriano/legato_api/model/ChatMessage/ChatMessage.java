@@ -59,5 +59,8 @@ public class ChatMessage {
     private TypeMedia typeMedia = TypeMedia.NONE;
 
     @Column(name = "media_url")
-    private String mediaUrl; 
+    private String mediaUrl;
+
+    @Column(name = "audio_type")
+    private String audioType;
 }

@@ -1,8 +1,11 @@
 package com.floriano.legato_api.config;
 
+import com.floriano.legato_api.dto.ChatDTO.UserPresenceDTO;
+import com.floriano.legato_api.model.User.User;
 import com.floriano.legato_api.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
@@ -15,6 +18,7 @@ import java.time.LocalDateTime;
 public class WebSocketEventListener {
 
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
@@ -26,6 +30,7 @@ public class WebSocketEventListener {
                 user.setIsOnline(true);
                 user.setLastSeen(LocalDateTime.now());
                 userRepository.save(user);
+                broadcastPresence(user);
             });
         }
     }
@@ -40,7 +45,15 @@ public class WebSocketEventListener {
                 user.setIsOnline(false);
                 user.setLastSeen(LocalDateTime.now());
                 userRepository.save(user);
+                broadcastPresence(user);
             });
         }
+    }
+
+    private void broadcastPresence(User user) {
+        messagingTemplate.convertAndSend(
+                "/topic/users/" + user.getId() + "/presence",
+                new UserPresenceDTO(user.getId(), user.getIsOnline(), user.getLastSeen())
+        );
     }
 }
