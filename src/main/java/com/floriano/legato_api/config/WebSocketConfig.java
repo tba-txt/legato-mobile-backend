@@ -21,7 +21,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         this.userHandshakeHandler = userHandshakeHandler;
     }
 
-    // 1. Cria um agendador exclusivo para o Heartbeat não travar a aplicação
     @Bean
     public TaskScheduler heartbeatTaskScheduler() {
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
@@ -34,8 +33,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic", "/queue")
-                .setTaskScheduler(heartbeatTaskScheduler()) // 2. Acopla o agendador
-                .setHeartbeatValue(new long[]{15000, 15000}); // 3. Ping do Back (15s) e Ping esperado do Front (15s)
+                .setTaskScheduler(heartbeatTaskScheduler()) 
+                .setHeartbeatValue(new long[]{15000, 15000}); 
                 
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
@@ -43,13 +42,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // 1. ROTA PURA (Recomendada para o React Native do Victor e para o Postman)
         registry.addEndpoint("/ws-chat")
                 .addInterceptors(authHandshakeInterceptor)
                 .setHandshakeHandler(userHandshakeHandler)
                 .setAllowedOriginPatterns("*");
 
-        // 2. ROTA SOCKJS (Fallback padrão do Spring)
         registry.addEndpoint("/ws-chat-sockjs")
                 .addInterceptors(authHandshakeInterceptor)
                 .setHandshakeHandler(userHandshakeHandler)

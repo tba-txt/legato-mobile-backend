@@ -50,7 +50,7 @@ public class ChatMessage {
     private MessageStatus status = MessageStatus.SENT;
 
     @Column(name = "read_at")
-    private LocalDateTime readAt; // Fica null até o usuário abrir o chat
+    private LocalDateTime readAt;
 
     // --- NOVOS CAMPOS PARA MÍDIA ---
     
