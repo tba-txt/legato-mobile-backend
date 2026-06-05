@@ -39,15 +39,12 @@ public class SpotifyController {
             @RequestParam String code, 
             @RequestParam String redirectUri) {
             
-        // 1. Troca o código pelo token real lá na API do Spotify
         SpotifyTokenResponse tokens = spotifyAuthService.exchangeCodeForTokens(code, redirectUri);
         
-        // 2. Salva na conta do usuário
         User user = userRepository.findById(userPrincipal.getUser().getId())
                                   .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
                                   
         user.setSpotifyAccessToken(tokens.getAccessToken());
-        // O refresh token às vezes não vem em requisições subsequentes, então só atualiza se vier
         if (tokens.getRefreshToken() != null) {
             user.setSpotifyRefreshToken(tokens.getRefreshToken());
         }
@@ -68,18 +65,15 @@ public class SpotifyController {
         }
 
         try {
-            // Tenta buscar os artistas com o token atual
             TopArtistsResponse topArtists = spotifyArtistService.getTopArtists(user.getSpotifyAccessToken());
             return ResponseEntity.ok(new ApiResponse<>(true, "Artistas recuperados com sucesso!", topArtists));
             
         } catch (Exception e) {
-            // Se der erro (geralmente porque o token expirou após 1 hora), tentamos usar o Refresh Token
             if (user.getSpotifyRefreshToken() != null) {
                 SpotifyTokenResponse novosTokens = spotifyAuthService.refreshToken(user.getSpotifyRefreshToken());
                 user.setSpotifyAccessToken(novosTokens.getAccessToken());
                 userRepository.save(user);
                 
-                // Tenta de novo com o token novo
                 TopArtistsResponse topArtists = spotifyArtistService.getTopArtists(novosTokens.getAccessToken());
                 return ResponseEntity.ok(new ApiResponse<>(true, "Artistas recuperados (Token atualizado)!", topArtists));
             }

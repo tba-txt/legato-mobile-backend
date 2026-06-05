@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
     name = "swipes",
-    // BLINDAGEM 1: O Banco de Dados nunca vai aceitar dois swipes da mesma pessoa para o mesmo alvo.
     uniqueConstraints = {
         @UniqueConstraint(columnNames = {"swiper_id", "swiped_id"})
     }

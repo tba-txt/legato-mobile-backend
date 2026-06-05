@@ -86,7 +86,7 @@ public class UserController {
     }
 
     @Operation(summary = "Get users for discovery", security = @SecurityRequirement(name = "bearerAuth"))
-    @Transactional(readOnly = true) // <-- ISSO AQUI MANTÉM O BANCO ABERTO PRO STREAM FUNCIONAR
+    @Transactional(readOnly = true)
     @GetMapping("/discovery")
     public ResponseEntity<ApiResponse<List<DiscoveryUserDTO>>> getUsersForDiscovery(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
@@ -99,7 +99,6 @@ public class UserController {
             @RequestParam(required = false) Integer ageMax,
             @RequestParam(defaultValue = "20") int limit) {
 
-        // <-- RECARREGA O USUÁRIO PARA RECONECTAR ELE AO HIBERNATE
         limit = Math.min(Math.max(limit, 1), 50);
         User myUser = userService.findById(userPrincipal.getUser().getId()); 
         Long myId = myUser.getId();
@@ -112,14 +111,11 @@ public class UserController {
                 .filter(u -> !u.getId().equals(myId)) 
                 .filter(u -> !swipedIds.contains(u.getId())) 
                 
-                // Agora o myUser.getBlockedUsers() vai funcionar lindamente!
                 .filter(u -> (myUser.getBlockedUsers() == null || !myUser.getBlockedUsers().contains(u)) && 
                              (u.getBlockedUsers() == null || !u.getBlockedUsers().contains(myUser)))
 
-                // ... o resto dos filtros continua EXATAMENTE igual daqui para baixo ...
                 .filter(u -> sex == null || sex.isBlank() || (u.getSex() != null && u.getSex().name().equalsIgnoreCase(sex)))
                 
-                // PROTEÇÃO: Trata lista vazia do Swagger e listas nulas do Banco de Dados
                 .filter(u -> instruments == null || instruments.isEmpty() || (instruments.size() == 1 && instruments.get(0).isBlank()) || 
                         (u.getInstruments() != null && u.getInstruments().stream().anyMatch(inst -> instruments.contains(inst.name()))))
                         
@@ -139,7 +135,6 @@ public class UserController {
                     return (minDistance == null || dist >= minDistance) && (maxDistance == null || dist <= maxDistance);
                 })
                 
-                // ORDENAÇÃO: Quem me curtiu (usersWhoLikedMe) aparece no topo!
                 .sorted((u1, u2) -> {
                     boolean u1LikedMe = usersWhoLikedMe.contains(u1.getId());
                     boolean u2LikedMe = usersWhoLikedMe.contains(u2.getId());
@@ -423,16 +418,12 @@ public class UserController {
     public ResponseEntity<ApiResponse<List<SwipeHistoryResponseDTO>>> getSwipeHistory(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        // Pega o ID do usuário logado através do Token/Principal
         Long myId = userPrincipal.getUser().getId();
 
-        // Busca o histórico formatado pelo Stream do Service
         List<SwipeHistoryResponseDTO> history = processSwipeService.getSwipeHistory(myId);
 
         return ResponseFactory.ok("Histórico recuperado com sucesso", history);
     }
-
-    //CALCULO DE DISTÂNCIA ENTRE USUÁRIOS (Haversine) PARA SWIPE POR LOCALIZAÇÃO
 
     private double calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {
         final int R = 6371; // Raio da Terra em Km

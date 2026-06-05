@@ -74,7 +74,7 @@ public class ChatController {
         logger.info("MENSAGEM RECEBIDA VIA WEBSOCKET! DTO: {}", dto);
 
         if (dto.receiverId() == null) {
-            logger.error("❌ ERRO FATAL: O receiverId chegou NULO do Front-end! Ignorando processamento.");
+            logger.error("ERRO FATAL: O receiverId chegou NULO do Front-end! Ignorando processamento.");
             return; 
         }
 
@@ -114,7 +114,6 @@ public class ChatController {
 
             logger.info("SUCESSO: Mensagem salva no chat {}: {}", chat.getId(), saved.getContent());
 
-            // 🚀 SOLUÇÃO APLICADA: Envia para a Sala do Chat (Tópico). Ambos recebem na hora.
             messagingTemplate.convertAndSend(
                     "/topic/chats/" + chat.getId() + "/messages",
                     ChatMessageDTO.from(saved)

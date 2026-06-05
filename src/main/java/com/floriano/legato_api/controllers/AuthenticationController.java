@@ -52,7 +52,7 @@ public class AuthenticationController {
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender mailSender;
 
-    @Value("${app.base-url}") // Movido para o topo para ser visível no login e no register
+    @Value("${app.base-url}")
     private String baseUrl;
 
     @PostMapping("/login")
@@ -62,28 +62,6 @@ public class AuthenticationController {
             var auth = authenticationManager.authenticate(usernamePassword);
             UserPrincipal userPrincipal = (UserPrincipal) auth.getPrincipal();
             User user = userPrincipal.getUser();
-
-            // CASO O EMAIL NÃO SEJA VERIFICADO: GERA UM NOVO TOKEN E REENVIA O EMAIL
-            if (!user.isEmailVerified()) {
-                String verifyToken = UUID.randomUUID().toString();
-                user.setEmailVerificationToken(verifyToken);
-                this.userRepository.save(user);
-
-                String link = baseUrl + "/auth/verify-email?token=" + verifyToken;
-                
-                String htmlMessage = "<div style=\"font-family: Arial, sans-serif; text-align: center; padding: 20px; color: #333;\">" +
-                                     "<h2 style=\"color: #686AE7;\">Confirme sua conta no Legato!</h2>" +
-                                     "<p>Você tentou realizar login, mas seu e-mail ainda não foi confirmado.</p>" +
-                                     "<p>Para validar a sua conta agora mesmo, clique no botão abaixo:</p>" +
-                                     "<a href=\"" + link + "\" style=\"background-color: #686AE7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; font-weight: bold;\">Verificar Meu E-mail</a>" +
-                                     "<p style=\"margin-top: 30px; font-size: 12px; color: #999;\">Se o botão não funcionar, copie e cole este link no navegador: <br>" + link + "</p>" +
-                                     "</div>";
-
-                enviarEmail(user.getEmail(), "Confirme sua conta no Legato", htmlMessage);
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(new ApiResponse<>(false, "Sua conta ainda não foi verificada. Um novo e-mail com as instruções de confirmação foi enviado para " + user.getEmail(), null));
-            }
 
             if (user.getLastPasswordChange() != null && user.getLastPasswordChange().plusDays(90).isBefore(LocalDateTime.now())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -135,48 +113,12 @@ public class AuthenticationController {
                 newUser.setWebsite(data.links().getWebsite());
             }
 
-            String verifyToken = UUID.randomUUID().toString();
-            newUser.setEmailVerificationToken(verifyToken);
             this.userRepository.save(newUser);
-
-            String link = baseUrl + "/auth/verify-email?token=" + verifyToken;
             
-            String htmlMessage = "<div style=\"font-family: Arial, sans-serif; text-align: center; padding: 20px; color: #333;\">" +
-                                 "<h2 style=\"color: #686AE7;\">Bem-vindo ao Legato!</h2>" +
-                                 "<p>Falta pouco para você acessar nossa plataforma.</p>" +
-                                 "<p>Para confirmar sua conta, clique no botão abaixo:</p>" +
-                                 "<a href=\"" + link + "\" style=\"background-color: #686AE7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; font-weight: bold;\">Verificar Meu E-mail</a>" +
-                                 "<p style=\"margin-top: 30px; font-size: 12px; color: #999;\">Se o botão não funcionar, copie e cole este link no navegador: <br>" + link + "</p>" +
-                                 "</div>";
-
-            enviarEmail(newUser.getEmail(), "Confirme sua conta no Legato", htmlMessage);
-            
-            return ResponseFactory.ok("Usuário cadastrado! Verifique seu e-mail para confirmar a conta antes de logar.", null);
+            return ResponseFactory.ok("Usuário cadastrado!", null);
         } catch (Exception e) {
             return ResponseFactory.badRequest("Erro ao registrar usuário: " + e.getMessage());
         }
-    }
-
-    @GetMapping(value = "/verify-email", produces = "text/html")
-    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
-        User user = userRepository.findByEmailVerificationToken(token)
-                .orElseThrow(() -> new RuntimeException("Token inválido ou expirado."));
-        
-        user.setEmailVerified(true);
-        user.setEmailVerificationToken(null);
-        userRepository.save(user);
-
-        String htmlPage = "<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\">" +
-                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" +
-                "<title>Legato - Verificação</title></head>" +
-                "<body style=\"font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0;\">" +
-                "<div style=\"text-align: center; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);\">" +
-                "<h1 style=\"color: #686AE7; margin-bottom: 10px;\"> E-mail Verificado!</h1>" +
-                "<p style=\"color: #333; font-size: 18px;\">Sua conta no Legato foi ativada com sucesso.</p>" +
-                "<p style=\"color: #666; margin-top: 20px;\">Você já pode fechar esta página e voltar para o aplicativo para fazer login.</p>" +
-                "</div></body></html>";
-
-        return ResponseEntity.ok(htmlPage);
     }
 
     @PostMapping("/forgot-password")
